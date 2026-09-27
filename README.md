@@ -12,7 +12,7 @@
 
 ## What is this? 🧭
 
-Paper Scout started as a small itch: I loved doing research with the [Feynman](https://github.com/companion-inc/feynman) agent, but not in a terminal. So I brought it into the Claude desktop app and kept adding the things I missed while writing a PhD.
+Paper Scout started as an itch: I liked doing research with the [Feynman](https://github.com/companion-inc/feynman) agent harness for my PhD work, but not in a terminal. So I brought it into the Claude desktop app and kept adding the things I missed while on my research process.
 
 The repository has two parts that work together:
 
