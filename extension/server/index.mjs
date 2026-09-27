@@ -4,7 +4,7 @@
 // abstracts, full text read by section or by passage search, everything cached on disk.
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync, readdirSync, copyFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, extname, dirname, resolve as resolvePath } from "node:path";
 import { createInterface } from "node:readline";
@@ -15,7 +15,7 @@ import { verifyDraft } from "./verify.mjs";
 import { startDesk } from "./desk.mjs";
 import { ResearchMap, definitionHits } from "./map.mjs";
 
-const VERSION = "0.11.0";
+const VERSION = "0.12.0";
 const PARSER_VERSION = "3";
 const S2 = "https://api.semanticscholar.org/graph/v1";
 const S2_REC = "https://api.semanticscholar.org/recommendations/v1";
@@ -748,6 +748,8 @@ async function pdfToSectionsWrapped(buf) { const sections = await pdfToSections(
 
 async function loadFullText(rawId) {
   let p = parseId(rawId);
+  // The project's own papers folder comes first: it is local, complete and needs no lookups.
+  if (p.kind === "handle" && libraryFile(p.h)) return loadFullTextParsed({ kind: "file", path: libraryFile(p.h) });
   if (p.kind === "handle") {
     const id = LEDGER.bestId(p.h, "read");
     if (!id) throw new Error(`${p.h} is not in this session`);
@@ -1146,8 +1148,8 @@ const TOOLS = [
     inputSchema: S({ id: ID, sections: { type: "array", items: { type: "string" } }, query: { type: "string" }, figure: { type: "string" }, page: { type: "integer" }, max_tokens: { type: "integer" }, offset: { type: "integer" }, max_hits: { type: "integer" } }, ["id"]) },
   { name: "code", description: "List code repositories for papers (links in the paper, Hugging Face, GitHub READMEs quoting the title) with stars, language, last push. Finds only; never explores.",
     inputSchema: S({ ids: IDS }, ["ids"]) },
-  { name: "session", description: "Project memory. start name=... folder=<project folder on this Mac> starts or resumes a project (the folder holds its research map). list (status, query) recalls papers; note marks handles kept|maybe|dropped with a note; card saves an evidence card (handles=[P12], note=claim, loc, quote); cards lists them; tldr recalls TLDRs; queries lists searches run; roles labels foundation/breakthrough/consolidation/frontier; bibtex writes a .bib (path) for kept papers; sessions lists projects.",
-    inputSchema: S({ action: { type: "string", enum: ["list", "note", "card", "cards", "tldr", "queries", "roles", "bibtex", "start", "sessions", "dump", "title"] }, name: { type: "string" }, folder: { type: "string" }, title: { type: "string" }, project: { type: "string", description: "dump: read another project without switching" }, handles: IDS,
+  { name: "session", description: "Project memory. start name=... folder=<project folder on this Mac> starts or resumes a project (the folder holds its research map). list (status, query) recalls papers; note marks handles kept|maybe|dropped with a note; card saves an evidence card (handles=[P12], note=claim, loc, quote); cards lists them; tldr recalls TLDRs; queries lists searches run; roles labels foundation/breakthrough/consolidation/frontier; bibtex writes a .bib (path) for kept papers; sessions lists projects; papers op=sync keeps the kept papers as PDFs in <project folder>/papers (read prefers those files).",
+    inputSchema: S({ action: { type: "string", enum: ["list", "note", "card", "cards", "tldr", "queries", "roles", "bibtex", "start", "sessions", "dump", "title", "papers"] }, op: { type: "string", description: "papers: show|sync (copy kept papers from Zotero, download open PDFs, list the rest in one task)" }, name: { type: "string" }, folder: { type: "string" }, title: { type: "string" }, project: { type: "string", description: "dump: read another project without switching" }, handles: IDS,
       status: { type: "string" }, note: { type: "string" }, loc: { type: "string" }, quote: { type: "string" }, query: { type: "string" }, path: { type: "string" }, limit: { type: "integer" } }) },
   { name: "verify", description: "Check a draft's citations mechanically: every citation has a source and vice versa, DOIs and arXiv ids resolve to the claimed title and year, cited papers were screened, and numbers next to citations appear in the cited paper's cards or text. Reads the file on this Mac; returns only problems.",
     inputSchema: S({ path: { type: "string", description: "Markdown or LaTeX draft" }, bib: { type: "string", description: ".bib for \\cite keys" }, text: { type: "string" }, numbers: { type: "boolean" } }) },
@@ -1179,15 +1181,17 @@ async function toolReadAll(a) {
   if (a.sections?.length) return toolRead(a);
   return toolOutline(a);
 }
-TOOLS.push({ name: "map", description: "Research map of the active project (research-map.json and .md in the project folder): concepts with definitions and pulse, questions, claims linked to evidence cards, and the versioned idea. Actions: show (overview and warnings), concepts, concept (id or label; alt, related, broader, sameas, status candidate|adopted|parked|dropped, role core|lens|context, use = working definition, scope, attributes, note), define (id or label, handle P12, quote, loc, kind), definitions, scan (id; explicit definition sentences in kept papers or handles), pulse (id; OpenAlex papers per year), claim (text or id; uses, answers, status), question (text or id; verdict answered|partly|open|contested, coverage), questions, link/unlink (from, rel supports|opposes|qualifies|informs|answers|uses|sameas|related|broader, to), revise (new idea version: statement, frame fields incl. method, claims, concepts, trigger paper|card|supervision|own|data|question, trigger_ref, trigger_note, change, rationale, branch_of), version (id, status current|abandoned), idea (current or id, with history), tag (definition id, attributes), compare (concept id; definitions by attribute), notes (the user's open notes from the Desk), note (id, status done), summary (writes a printable one-page research-summary.html with APA references), task (text, kind read|question|write|check|other, source, about, due; or id with status todo|doing|done), tasks (open tasks), framework (the conceptual framework: op show|add_node|remove_node|move|add_edge from,to,type influences|moderates|associated,sign,claim|edit_edge|remove_edge|save note|restore id|export; edges Claude adds are proposals until the user accepts them). Adopting concepts and revising the idea only after the user agrees.",
-  inputSchema: S({ action: { type: "string", enum: ["show", "concepts", "concept", "define", "definitions", "tag", "compare", "scan", "pulse", "claim", "question", "questions", "link", "unlink", "revise", "version", "idea", "note", "notes", "summary", "task", "tasks", "framework"] },
-    op: { type: "string", enum: ["show", "add_node", "remove_node", "move", "add_edge", "edit_edge", "remove_edge", "save", "restore", "export"] }, type: { type: "string", enum: ["influences", "moderates", "associated"] }, sign: { type: "string", enum: ["+", "-", ""] }, claim: { type: "string" },
+TOOLS.push({ name: "map", description: "Research map of the active project (research-map.json and .md in the project folder): concepts with definitions and pulse, questions, claims linked to evidence cards, and the versioned idea. Actions: show (overview and warnings), focus (id C3|K2|RQ1|X1: one item with its neighbours and nearby evidence; prefer it to reading the whole map), concepts, concept (id or label; alt, related, broader, sameas, status candidate|adopted|parked|dropped, role core|lens|context, use = working definition, scope, attributes, note), define (id or label, handle P12, quote, loc, kind), undefine (id D3), definitions, scan (id; explicit definition sentences in kept papers or handles), pulse (id; OpenAlex papers per year), claim (text or id; uses, answers, status), question (text or id; verdict answered|partly|open|contested, coverage), questions, link/unlink (from, rel supports|opposes|qualifies|informs|answers|uses|sameas|related|broader, to), revise (new idea version: statement, framing = two to four short paragraphs of prose, method = prose, claims, concepts, trigger paper|card|supervision|own|data|question, trigger_ref, trigger_note, change, rationale, branch_of), version (id, status current|abandoned), idea (current or id, with history), tag (definition id, attributes), compare (concept id; definitions by attribute), notes (the user's open notes from the Desk), note (id, status done), summary (writes a printable one-page research-summary.html with APA references), task (text, kind read|question|write|check|other, source, about, due; or id with status todo|doing|done), tasks (open tasks), framework (several named frameworks per project, fw=FW2 or the active one: op list|create name,kind conceptual|pipeline,copy|from_version|rename name,kind|rename_node id,label,note|activate|delete|show|add_node id or label,component,x,y|remove_node|move|arrange|add_edge from,to,type,sign,hypothesis,claim,verb|edit_edge|remove_edge|save note|restore id|compare id,with|export; pipelines relate components X1 (modules, data, steps) as well as concepts; edges Claude adds are proposals until the user accepts them), ontology (op show|save|restore|compare|export: SKOS Turtle and Markdown). Adopting concepts and revising the idea only after the user agrees.",
+  inputSchema: S({ action: { type: "string", enum: ["show", "concepts", "concept", "define", "definitions", "tag", "compare", "scan", "pulse", "claim", "question", "questions", "link", "unlink", "revise", "version", "idea", "note", "notes", "summary", "task", "tasks", "framework", "ontology", "focus", "undefine"] },
+    op: { type: "string", description: "framework: list|create|rename|rename_node|activate|delete|show|add_node|remove_node|move|arrange|add_edge|edit_edge|remove_edge|save|restore|compare|export; ontology: show|save|restore|compare|export" },
+    fw: { type: "string", description: "framework id (FW2); default the active one" }, name: { type: "string" }, copy: { type: "string" }, from_version: { type: "string" }, with: { type: "string" },
+    type: { type: "string", enum: ["influences", "moderates", "associated", "enables", "constrains", "precedes", "partof", "feeds", "produces", "custom"] }, component: { type: "boolean", description: "add_node: a component (module, dataset, step), not a concept" }, verb: { type: "string" }, hypothesis: { type: "string", description: "edge label such as H1" }, unrelated: IDS, sign: { type: "string", enum: ["+", "-", ""] }, claim: { type: "string" },
     source: { type: "string", enum: ["you", "supervisor", "feynman", "claude"] }, parent: { type: "string", description: "concept: place under this concept in the ontology (empty removes)" }, parent_rel: { type: "string", enum: ["broader", "partof"] }, due: { type: "string" }, x: { type: "number" }, y: { type: "number" },
     id: { type: "string" }, label: { type: "string" }, text: { type: "string" }, alt: IDS, related: IDS, broader: IDS, sameas: IDS, attributes: { type: "array", items: { type: "string" } },
     status: { type: "string" }, role: { type: "string" }, use: { type: "string" }, scope: { type: "string" }, note: { type: "string" },
-    handle: { type: "string" }, handles: IDS, quote: { type: "string" }, loc: { type: "string" }, kind: { type: "string", description: "define: explicit|implicit; note: thought|supervision|check" }, about: { type: "string" }, phrase: { type: "string" }, limit: { type: "integer" },
+    handle: { type: "string" }, handles: IDS, quote: { type: "string" }, loc: { type: "string" }, kind: { type: "string", description: "define: explicit|implicit; note: thought|supervision|check; framework create/rename: conceptual|pipeline" }, about: { type: "string" }, phrase: { type: "string" }, limit: { type: "integer" },
     uses: IDS, answers: IDS, verdict: { type: "string" }, coverage: { type: "string" }, from: IDS, rel: { type: "string" }, to: IDS,
-    statement: { type: "string" }, conversation: { type: "string" }, opportunity: { type: "string", enum: ["confusion", "neglect", "application", "problematization"] }, what: { type: "string" }, how: { type: "string" }, why: { type: "string" }, boundaries: { type: "string" }, originality: { type: "string" }, utility: { type: "string" }, method: { type: "string", description: "methodology: design, data, analysis" },
+    statement: { type: "string" }, framing: { type: "string", description: "prose: the conversation joined, the gap, what the project contributes and where it holds; paragraphs separated by a blank line" }, method: { type: "string", description: "prose: design, data, analysis" },
     claims: IDS, concepts: IDS, trigger: { type: "string" }, trigger_ref: { type: "string" }, trigger_note: { type: "string" }, change: { type: "string" }, rationale: { type: "string" }, branch_of: { type: "string" }, project: { type: "string", description: "read another project's map without switching" } }) });
 TOOLS.push({ name: "desk", description: "Link to the Research Desk, a local page (open it in the browser pane) for screening papers, evidence cards, searches and BibTeX export, with live progress during Feynman runs.",
   inputSchema: S({}) });
@@ -1243,13 +1247,113 @@ async function apaRefs(handles) {
   }
   return out;
 }
+// ---------- saved papers: the project's folder of PDFs ----------
+// Cowork reads local PDFs far better than links, so each project keeps its kept papers as files in
+// <project folder>/papers. Zotero PDFs are copied (Zotero itself is only read), open copies are
+// downloaded, and whatever remains becomes one task for the user rather than one task per paper.
+function libraryDir(st = LEDGER.ensure()) {
+  return st.folder ? join(st.folder, "papers") : join(CFG.cacheDir, "library", st.name.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase());
+}
+const normWords = (t) => String(t || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter((w) => w.length > 3);
+function pdfName(h, p) {
+  const who = LEDGER.fixLasts(p)[0] || "Unknown";
+  const t = String(p.title || "Untitled").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().split(" ").slice(0, 9).join(" ");
+  return `${who} ${p.year || "n.d."} - ${t} (${h}).pdf`.replace(/\s+/g, " ").slice(0, 150);
+}
+function libraryMatch(files, h, p) {
+  const tag = files.find((f) => f.includes(`(${h})`)); if (tag) return tag;
+  const want = normWords(p.title).slice(0, 8); if (want.length < 3) return null;
+  let best = null, score = 0;
+  for (const f of files) {
+    const have = new Set(normWords(f.replace(/\.pdf$/i, "")));
+    const sc = want.filter((w) => have.has(w)).length / want.length;
+    if (sc > score) { best = f; score = sc; }
+  }
+  if (p.ids?.doi) { const d = files.find((f) => f.toLowerCase().includes(p.ids.doi.toLowerCase().replace(/\//g, "_"))); if (d) return d; }
+  if (p.ids?.arxiv) { const x = files.find((f) => f.includes(p.ids.arxiv)); if (x) return x; }
+  return score >= 0.7 ? best : null;
+}
+async function openPdfUrls(p) {
+  const urls = [];
+  if (p.ids?.arxiv) urls.push(`https://arxiv.org/pdf/${p.ids.arxiv}`);
+  const doi = p.ids?.doi;
+  if (doi) {
+    try { const r = await s2Resolve(parseId(doi)); if (r.openAccessPdf?.url) urls.push(r.openAccessPdf.url); } catch {}
+    try { const w = await http(oaUrl(`/works/doi:${doi}`, { select: "best_oa_location,open_access" })); for (const u of [w.best_oa_location?.pdf_url, w.open_access?.oa_url]) if (u) urls.push(u); } catch {}
+    if (CFG.mailto) try { const u = await http(`https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=${encodeURIComponent(CFG.mailto)}`, { ttl: 14 * DAY }); for (const l of [u.best_oa_location, ...(u.oa_locations || [])].filter(Boolean)) if (l.url_for_pdf) urls.push(l.url_for_pdf); } catch {}
+  }
+  return [...new Set(urls)];
+}
+function libraryState() {
+  const st = LEDGER.ensure(), dir = libraryDir(st);
+  const files = existsSync(dir) ? readdirSync(dir).filter((f) => /\.pdf$/i.test(f)) : [];
+  const kept = Object.entries(st.papers).filter(([, p]) => p.status === "kept");
+  let changed = false;
+  for (const [h, p] of kept) {
+    if (p.pdf && files.includes(p.pdf)) continue;
+    const f = libraryMatch(files, h, p);
+    if (f) { p.pdfFrom = p.pdf === f && p.pdfFrom ? p.pdfFrom : "you"; p.pdf = f; changed = true; }
+    else if (p.pdf) { p.pdf = ""; p.pdfFrom = ""; changed = true; }
+  }
+  if (changed) LEDGER.save();
+  return { st, dir, files, kept };
+}
+function libraryTask(missing) {
+  // One standing task for the papers that could not be fetched, rewritten on every sync.
+  try {
+    MAP.load(); const m = MAP.m;
+    let k = Object.keys(m.tasks).find((t) => m.tasks[t].library);
+    if (!missing.length) { if (k && m.tasks[k].status !== "done") { Object.assign(m.tasks[k], { status: "done", done: new Date().toISOString().slice(0, 10) }); MAP.save(); } return ""; }
+    const title = `Add ${missing.length} paper${missing.length === 1 ? "" : "s"} to the papers folder`;
+    const note = missing.map(([h, p]) => `${h} ${LEDGER.fixLasts(p)[0] || ""} ${p.year || ""}: ${p.title}${p.ids?.doi ? ` (https://doi.org/${p.ids.doi})` : ""}`).join("\n");
+    if (!k) { k = `T${m.next.T++}`; m.tasks[k] = { title, kind: "read", source: "claude", about: "", status: "todo", due: "", note, created: new Date().toISOString().slice(0, 10), library: true }; }
+    else Object.assign(m.tasks[k], { title, note, status: m.tasks[k].status === "done" ? "todo" : m.tasks[k].status, done: "" });
+    MAP.save(); return k;
+  } catch { return ""; }
+}
+async function toolPapersFolder(a) {
+  const op = a.op || "show";
+  let { st, dir, files, kept } = libraryState();
+  if (op === "sync") {
+    mkdirSync(dir, { recursive: true });
+    const only = Array.isArray(a.handles) && a.handles.length ? new Set(a.handles.map((h) => String(h).toUpperCase())) : null;
+    const log = { zotero: [], open: [], missing: [] };
+    for (const [h, p] of kept) {
+      if (only && !only.has(h)) continue;
+      if (p.pdf && existsSync(join(dir, p.pdf))) continue;
+      const name = pdfName(h, p), dest = join(dir, name);
+      let done = false;
+      try {
+        const z = await zotLookup({ doi: p.ids?.doi || "", arxiv: p.ids?.arxiv || "" }, p.title || "", CFG.zoteroDir);
+        if (z?.ids?.zot) { const r = await zoteroResolve(z.ids.zot, CFG.zoteroDir); if (r.path && /\.pdf$/i.test(r.path) && existsSync(r.path)) { copyFileSync(r.path, dest); Object.assign(p, { pdf: name, pdfFrom: "zotero" }); log.zotero.push(h); done = true; } }
+      } catch {}
+      if (!done) for (const u of await openPdfUrls(p)) {
+        try { const buf = await http(u, { as: "buffer", ttl: 0, headers: { accept: "application/pdf" } }); if (buf.subarray(0, 5).toString() === "%PDF-") { writeFileSync(dest, buf); Object.assign(p, { pdf: name, pdfFrom: "open" }); log.open.push(h); done = true; break; } } catch {}
+      }
+      if (!done) log.missing.push([h, p]);
+    }
+    LEDGER.save();
+    ({ st, dir, files, kept } = libraryState());
+    const missing = kept.filter(([, p]) => !p.pdf);
+    const t = libraryTask(missing);
+    return [`Papers folder: ${dir}`, `${kept.length - missing.length} of ${kept.length} kept papers saved.${log.zotero.length ? ` Copied from Zotero: ${log.zotero.join(" ")}.` : ""}${log.open.length ? ` Downloaded open copies: ${log.open.join(" ")}.` : ""}`,
+      missing.length ? `Not found as open PDFs: ${missing.map(([h]) => h).join(" ")}. They are listed in task ${t} for the user to add (library access or Zotero); files dropped in the folder are picked up by name.` : "Every kept paper is in the folder."].join("\n");
+  }
+  if (op === "dir") { mkdirSync(dir, { recursive: true }); return dir; }
+  if (op === "file") { const f = String(a.name || ""); if (!/\.pdf$/i.test(f) || f.includes("/") || f.includes("\\") || f.startsWith(".")) throw new Error("bad file name"); const full = join(dir, f); if (!existsSync(full)) throw new Error("no such file"); return full; }
+  if (op === "dump") return JSON.stringify({ dir, exists: existsSync(dir), files: files.length, papers: Object.fromEntries(kept.map(([h, p]) => [h, { pdf: p.pdf || "", from: p.pdfFrom || "" }])), extra: files.filter((f) => !kept.some(([, p]) => p.pdf === f)) });
+  const missing = kept.filter(([, p]) => !p.pdf);
+  return [`Papers folder: ${dir}${existsSync(dir) ? "" : " (not created yet; op=sync creates and fills it)"}`, `${kept.length - missing.length} of ${kept.length} kept papers saved.`, missing.length ? `Missing: ${missing.map(([h]) => h).join(" ")}` : ""].filter(Boolean).join("\n");
+}
+function libraryFile(h) { try { const st = LEDGER.ensure(), p = st.papers[String(h).toUpperCase()]; if (p?.pdf) { const f = join(libraryDir(st), p.pdf); if (existsSync(f)) return f; } } catch {} return null; }
+
 const MAP = new ResearchMap({ ledger: LEDGER, cacheDir: CFG.cacheDir, pulse: conceptPulse, apa: apaRefs,
   scan: async (h, terms) => definitionHits(await loadFullText(h), terms) });
 
 const HANDLERS = {
   desk: () => DESK?.running ? `Research Desk: ${DESK.url}\nOpen it in the browser pane. Projects, screening, cards and searches update live.` : "The Research Desk is not running (its port may be taken by another copy of Paper Scout).",
   search: toolSearchAll, paper: toolPaperAll, graph: toolGraph, read: toolReadAll, code: toolCode,
-  session: async (a) => (await refreshSurnames(), a.action === "bibtex" ? toolBibtex(a) : a.action === "roles" ? (await fillCitations(), LEDGER.tool(a)) : LEDGER.tool(a)),
+  session: async (a) => (await refreshSurnames(), a.action === "papers" ? toolPapersFolder(a) : a.action === "bibtex" ? toolBibtex(a) : a.action === "roles" ? (await fillCitations(), LEDGER.tool(a)) : LEDGER.tool(a)),
   verify: (a) => verifyDraft(a, { LEDGER, http, oaUrl, loadFullText, xmlText, ARXIV_API }),
   map: async (a) => (await refreshSurnames(), a.action === "snapshot" ? JSON.stringify(MAP.snapshot(a.project)) : a.action === "summary_html" ? (MAP.load(a.project), MAP.summaryHtml(await MAP.references())) : MAP.tool(a)),
 };

@@ -240,12 +240,66 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
 .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--faint); margin-top: 8px; }
 .legend i { display: inline-block; width: 22px; border-top: 2px solid var(--ink); vertical-align: middle; margin-right: 5px; }
 .legend i.d { border-top-style: dashed; border-color: var(--faint); } .legend i.c { border-color: var(--bad); } .legend i.p { border-top-style: dotted; border-color: var(--accent); }
+.fw-handle { fill: var(--leaf); stroke: var(--accent); stroke-width: 1.5; cursor: crosshair; opacity: .55; }
+.fw-node:hover .fw-handle, .fw-node.sel .fw-handle { opacity: 1; }
+.fw-link { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 4 4; pointer-events: none; }
+.fw-tag { font: 600 12px var(--sans); fill: var(--ink-2); paint-order: stroke; stroke: var(--leaf); stroke-width: 4px; }
+.fw-edge.added .ln { stroke: var(--good); stroke-width: 2.4; } .fw-edge.removed .ln { stroke: var(--bad); stroke-dasharray: 6 5; opacity: .7; } .fw-edge.changed .ln { stroke: var(--warn); stroke-width: 2.4; }
+.fw-node.ghost rect { stroke: var(--bad); stroke-dasharray: 5 4; opacity: .6; } .fw-node.ghost text { opacity: .6; }
+.fw-node.added rect { stroke: var(--good); stroke-width: 2.4; }
+.vrow { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: baseline; font-size: 14px; }
+.vrow b { font-weight: 600; color: var(--accent); }
 .onto { display: grid; gap: 0; border-top: 1px solid var(--rule); }
 .orow { border-bottom: 1px solid var(--rule); padding: 8px 0; }
 .orow .ohead { display: flex; gap: 8px; align-items: baseline; cursor: pointer; background: none; border: 0; padding: 0; text-align: left; width: 100%; }
 .orow .olabel { font: 500 16px/1.3 var(--serif); }
 .orow .orel { font-size: 12px; color: var(--faint); }
 .orow .obody { padding: 8px 0 2px 22px; display: grid; gap: 8px; font-size: 14px; }
+
+/* Editing in place */
+.field p + p { margin-top: 8px; }
+.prose p { margin: 0 0 10px; max-width: 66ch; font: 16.5px/1.55 var(--serif); } .prose p:last-child { margin-bottom: 0; }
+.edit-area { width: 100%; background: var(--leaf); border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; font: 15px/1.5 var(--serif); color: var(--ink); resize: vertical; }
+.edit-area.big { font: 400 22px/1.32 var(--serif); }
+.edit-area:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.hint { font-size: 12px; color: var(--faint); }
+.claim-t .pen { align-self: start; }
+.credit { margin: 64px 0 8px; text-align: center; font: 11px/1.4 var(--sans); color: var(--faint); letter-spacing: .01em; }
+/* Saved papers */
+.shelf { border: 1px solid var(--rule); background: var(--leaf); border-radius: 10px; padding: 12px 14px; margin: 0 0 18px; display: grid; gap: 10px; }
+.shelf-head { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
+.shelf-head svg { width: 30px; height: 26px; color: var(--accent); }
+.shelf-title { font: 500 17px/1.2 var(--serif); }
+.shelf-path { font: 12.5px var(--mono); color: var(--ink-2); overflow-wrap: anywhere; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.shelf-path:hover { color: var(--accent); text-decoration: underline; }
+.shelf-bar { height: 5px; border-radius: 3px; background: var(--rule-soft); overflow: hidden; } .shelf-bar i { display: block; height: 100%; background: var(--good); }
+.shelf-list { display: grid; gap: 0; font-size: 13.5px; }
+.shelf-row { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; padding: 6px 0; border-top: 1px solid var(--rule-soft); align-items: baseline; }
+.shelf-row .st { width: 9px; height: 9px; border-radius: 50%; background: var(--good); display: inline-block; }
+.shelf-row .st.missing { background: none; border: 1.5px solid var(--bad); }
+.shelf-list a { color: var(--ink); text-decoration: none; } .shelf-list a:hover { color: var(--accent); text-decoration: underline; }
+.shelf-row .src a { color: var(--accent); }
+.shelf-row .src { font-size: 12px; color: var(--faint); white-space: nowrap; }
+/* Task board drag and drop */
+.lane { min-height: 90px; border-radius: 10px; transition: background .12s, outline-color .12s; outline: 2px dashed transparent; outline-offset: 6px; }
+.lane.over { background: var(--accent-soft); outline-color: var(--accent); }
+.tcard[draggable="true"] { cursor: grab; }
+.tcard.dragging { opacity: .35; }
+/* Framework polish */
+.fw-pill rect { fill: var(--leaf); stroke: var(--rule); stroke-width: 1; }
+.fw-pill text { font: 600 11.5px var(--sans); fill: var(--ink-2); }
+.fw-pill.proposed text { fill: var(--accent); } .fw-pill.contested text { fill: var(--bad); }
+.fw-junction { fill: var(--leaf); stroke: var(--ink); stroke-width: 1.6; }
+.fw-junction.proposed { stroke: var(--accent); } .fw-junction.contested { stroke: var(--bad); }
+.fw-edge.hot .ln { stroke-width: 3.6; animation: fwpulse 1s ease-in-out infinite; }
+@keyframes fwpulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .fw-edge.hot .ln { animation: none; } }
+.fw-node.comp rect { rx: 2px; fill: var(--leaf); stroke-width: 1.4; }
+.fw-node.comp.sel rect { stroke: var(--accent); stroke-width: 2.4; }
+.sugg { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 6px 8px; margin: 0 -8px; border-radius: 8px; }
+.sugg:hover, .sugg:focus-within { background: var(--accent-soft); }
+.place { background: none; border: 0; padding: 0; font: inherit; color: var(--ink-2); cursor: pointer; text-align: left; border-bottom: 1px dotted var(--faint); }
+.place:hover { color: var(--accent); border-color: var(--accent); }
 
 /* Tasks */
 .quick { display: grid; gap: 8px; margin-bottom: 22px; }
@@ -282,6 +336,7 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
   </header>
   <div id="banner"></div>
   <main id="main"></main>
+  <footer class="credit">Developed by Guillermo Gil de Avalle.</footer>
 </div>
 
 <script>
@@ -308,7 +363,7 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
   const cap = (s) => { s = String(s ?? ""); return s ? s[0].toUpperCase() + s.slice(1) : s; };
   const S = { data: null, viewing: null, tab: store.get("tab", "idea"), ctab: store.get("ctab", "register"), pfilter: store.get("pfilter", "unsorted"),
     open: new Set(store.get("open", [])), outputs: {}, live: false, timer: null, busy: false, pendingSwitch: null, noteKind: "thought", draft: store.get("draft", ""),
-    editTitle: false, cq: "", taskKind: "read", fw: { sel: null, connect: false, from: null, pending: null }, drag: null };
+    editTitle: false, cq: "", taskKind: "read", fw: { sel: null, pending: null, view: null, compare: null, adding: null, renaming: false, creating: false, linking: false }, drag: null };
   if (S.tab === "questions") S.tab = "tasks";
   const isOpen = (k) => S.open.has(k);
   const remember = () => store.set("open", [...S.open].filter((k) => /^(grp|sec|fw):/.test(k)));
@@ -384,7 +439,7 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
   }
   const fmtDate = (s) => { if (!s) return ""; const d = new Date(s.length === 10 ? s + "T12:00:00" : s); return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); };
   const conceptLabel = (c) => cap(MM()?.concepts?.[c]?.label || c);
-  const rawLabel = (c) => MM()?.concepts?.[c]?.label || c;
+  const rawLabel = (c) => MM()?.concepts?.[c]?.label || MM()?.components?.[c]?.label || c;
   function labelOf(h) {
     const m = MM();
     if (/^C\d+$/.test(h)) return `"${conceptLabel(h)}"`;
@@ -393,13 +448,41 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
     if (/^P\d+/.test(h)) return paperRef(h);
     return h;
   }
+  const proseEls = (t) => String(t || "").split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean).map((x) => el("p", {}, cap(x)));
+  const GAP = { confusion: "The gap is one of competing explanations.", neglect: "The gap is an overlooked area.", application: "The opportunity is to extend existing work to a new setting.", problematization: "The opportunity is to challenge an assumption the field takes for granted." };
+  function framingText(v) {
+    if (!v) return ""; if (v.framing) return v.framing;
+    const sent = (x) => { x = cap(String(x || "").trim()); return x && !/[.!?]$/.test(x) ? x + "." : x; };
+    const a = ["conversation", "opportunity", "what", "how", "why"].map((k) => k === "opportunity" ? GAP[v[k]] || sent(v[k]) : sent(v[k])).filter(Boolean).join(" ");
+    const b = ["boundaries", "originality", "utility"].map((k) => sent(v[k])).filter(Boolean).join(" ");
+    return [a, b].filter(Boolean).join("\n\n");
+  }
+  const grow = (ta) => { const f = () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight + 4, 640) + "px"; }; ta.addEventListener("input", f); setTimeout(f, 0); };
+  function penBtn(title, onclick) { const b = el("button", { class: "pen", type: "button", title, "aria-label": title, onclick }); b.innerHTML = PEN; return b; }
+  // Click the pen, edit in place, save. Nothing goes through Claude.
+  function editable({ key, label, value, empty, rows = 3, prose = false, big = false, onSave, hint }) {
+    if (isOpen(key) && canWrite()) {
+      const ta = el("textarea", { rows: String(rows), class: "edit-area" + (big ? " big" : ""), "aria-label": label || "Edit" }); ta.value = value || ""; grow(ta);
+      const close = () => { S.open.delete(key); render(); };
+      const save = async () => { const v = ta.value.trim(); S.open.delete(key); if (v === String(value || "").trim()) { render(); return; } try { await onSave(v); } catch { render(); } };
+      ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); } if (e.key === "Escape") close(); });
+      setTimeout(() => ta.focus(), 0);
+      return el("div", { class: "field" }, label ? el("h4", {}, label) : null, ta, el("div", { class: "mini", style: "margin-top:6px" },
+        el("button", { class: "btn primary small", type: "button", onclick: save }, "Save"), el("button", { class: "linkbtn", type: "button", onclick: close }, "Cancel"),
+        el("span", { class: "hint" }, hint || (prose ? "Leave a blank line between paragraphs. Cmd+Enter saves." : "Cmd+Enter saves."))));
+    }
+    const pen = canWrite() ? penBtn(`Edit ${label ? label.toLowerCase() : "this"}`, () => flip(key)) : null;
+    const body = value ? (prose ? [el("div", { class: "prose" }, ...proseEls(value))] : [el("p", {}, cap(value))]) : [el("p", { class: "missing" }, empty)];
+    const edit = !label && canWrite() ? el("button", { class: "linkbtn", type: "button", style: "justify-self:start;margin-top:6px", onclick: () => flip(key) }, value ? "Edit" : "Write it here") : null;
+    return el("div", { class: "field" }, label ? el("h4", {}, label, " ", pen) : null, ...body, edit);
+  }
   const chev = (open) => el("span", { class: "chev", "aria-hidden": "true", style: open ? "transform:rotate(90deg)" : null }, "▶");
 
   // ---------- what needs the user ----------
   function needs() {
     const d = S.data; const m = MM();
     return {
-      concepts: m ? Object.values(m.concepts).filter((c) => c.status === "candidate").length + (m.framework?.edges || []).filter((e) => e.status === "proposed").length : 0,
+      concepts: m ? Object.values(m.concepts).filter((c) => c.status === "candidate").length + (m.frameworks || []).flatMap((f) => f.edges).filter((e) => e.status === "proposed").length : 0,
       papers: d && d.active ? d.papers.filter((p) => !p.status).length : 0,
       tasks: m ? Object.values(m.tasks || {}).filter((t) => t.status === "doing").length : 0,
     };
@@ -446,9 +529,7 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
   }
 
   // ----- Idea -----
-  const FRAMING = [["conversation", "The conversation it joins"], ["opportunity", "Kind of gap"], ["what", "What: the constructs"], ["how", "How they relate"], ["why", "Why: the mechanism"], ["boundaries", "Where it holds"], ["originality", "Originality"], ["utility", "Utility"]];
-  const OPP = { confusion: "Confusion spotting: competing explanations", neglect: "Neglect spotting: an overlooked area", application: "Application spotting: extending existing work", problematization: "Problematization: challenging assumptions" };
-  const TRIG = { paper: "A paper", card: "Evidence", supervision: "Supervision", own: "Own thinking", data: "Data", question: "A question" };
+  const TRIG = { paper: "A paper", card: "Evidence", supervision: "Supervision", own: "Own thinking", data: "Data", question: "A question", edit: "Your edit" };
   const KIND = { thought: "Thought", supervision: "Supervision", check: "To check" };
   function section(key, title, summary, body) {
     return el("details", { class: "sec", open: isOpen(key) || null, ontoggle: keepOpen(key) },
@@ -473,8 +554,10 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
       el("button", { class: "btn", type: "button", style: "margin-left:auto", onclick: save }, "Save")));
   }
   function noteEl(k, n) {
+    const ek = "edit:note:" + k;
+    if (isOpen(ek) && canWrite()) return el("div", { class: "note", "data-kind": n.kind, style: "grid-template-columns:1fr" }, editable({ key: ek, value: n.text, onSave: (v) => act("map", { action: "note", id: k, text: v }) }));
     return el("div", { class: "note", "data-kind": n.kind },
-      el("div", {}, el("div", {}, n.text), el("div", { class: "nk" }, [KIND[n.kind], n.about ? "On " + labelOf(n.about) : "", new Date(n.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })].filter(Boolean).join(" · "))),
+      el("div", {}, el("div", {}, n.text, canWrite() ? [" ", penBtn("Edit this note", () => flip(ek))] : null), el("div", { class: "nk" }, [KIND[n.kind], n.about ? "On " + labelOf(n.about) : "", new Date(n.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })].filter(Boolean).join(" · "))),
       canWrite() ? el("button", { class: "linkbtn", type: "button", title: "Mark as dealt with", onclick: () => act("map", { action: "note", id: k, status: "done" }).catch(() => {}) }, "Done") : null);
   }
   function viewIdea() {
@@ -482,12 +565,15 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
     if (!m) return [el("p", { class: "empty" }, S.data.mapError ? "The research map could not be read: " + S.data.mapError : "No research map yet.")];
     const cur = m.versions.find((v) => v.status === "current") || m.versions.at(-1);
     if (!cur) return [el("p", { class: "lede" }, "The idea is the short version of what this project argues."),
-      el("p", { class: "empty" }, "Nothing recorded yet. Tell Claude the idea you are starting from. It becomes version 1, and every later change keeps the earlier version together with what prompted it."),
+      el("p", { class: "empty" }, "Nothing recorded yet. Write the idea you are starting from, or tell Claude. It becomes version 1, and every later change keeps the earlier version together with what prompted it."),
+      canWrite() ? editable({ key: "edit:statement", value: "", empty: "Write the idea", big: true, rows: 3, onSave: (v) => act("map", { action: "edit", statement: v }) }) : null,
+      canWrite() && !isOpen("edit:statement") ? el("button", { class: "btn", type: "button", onclick: () => flip("edit:statement") }, "Write the idea") : null,
       canWrite() ? composer("", "Jot a first thought…") : null];
     const out = [];
     out.push(el("div", { class: "kicker" }, el("span", {}, "The idea"), el("span", { class: "v" }, cur.v), el("span", {}, fmtDate(cur.date)),
       el("a", { class: "printlink", href: `/summary?t=${TOKEN}${S.data.active ? "" : "&project=" + encodeURIComponent(S.viewing)}`, target: "_blank", rel: "noopener" }, "One-page summary")));
-    out.push(el("p", { class: "statement" }, cur.statement));
+    if (isOpen("edit:statement") && canWrite()) out.push(editable({ key: "edit:statement", value: cur.statement, big: true, rows: 3, onSave: (v) => act("map", { action: "edit", statement: v }), hint: "Saving records a new version of the idea (edits made on the same day share one). Cmd+Enter saves." }));
+    else out.push(el("p", { class: "statement" }, cur.statement, canWrite() ? [" ", penBtn("Edit the idea", () => flip("edit:statement"))] : null));
     const trig = cur.trigger?.type ? (TRIG[cur.trigger.type] || cap(cur.trigger.type)).toLowerCase() : "";
     out.push(el("p", { class: "since" }, cur.of ? [el("b", {}, cap(cur.change)), trig ? ` (after ${trig})` : ""] : "First version."));
     if (canWrite()) out.push(composer("", "Jot a thought, a supervisor's comment, or something to check…"));
@@ -502,13 +588,12 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
       el("summary", {}, cap(plural(flags.length, "thing")) + " to look at"),
       el("ul", {}, ...flags.map((f) => el("li", {}, cap(f).replace(/\b(K|C|RQ)\d+\b/g, (x) => labelOf(x)))))));
 
-    const filled = FRAMING.filter(([k]) => cur[k]);
-    const missing = FRAMING.filter(([k]) => !cur[k]).map(([, l]) => l.split(":")[0].toLowerCase());
-    out.push(section("sec:framing", "Framing", filled.length ? `${filled.length} of ${FRAMING.length} stated` : "Not yet stated", [
-      ...filled.map(([k, l]) => el("div", { class: "field" }, el("h4", {}, l), el("p", {}, k === "opportunity" ? OPP[cur[k]] || cap(cur[k]) : cap(cur[k])))),
-      missing.length ? el("p", { class: "missing" }, "Still open: " + missing.join(", ") + ".") : null]));
-    out.push(section("sec:method", "Methodology", cur.method ? "Stated" : "Not yet stated", [
-      cur.method ? el("div", { class: "field" }, el("p", {}, cap(cur.method))) : el("p", { class: "missing" }, "Not stated yet. Tell Claude how you plan to study it (design, data, analysis) and it goes into the next version.")]));
+    const fr = framingText(cur);
+    const words = (t) => String(t || "").split(/\s+/).filter(Boolean).length;
+    out.push(section("sec:framing", "Framing", fr ? `${words(fr)} words` : "Not yet written", [
+      editable({ key: "edit:framing", value: fr, prose: true, rows: 8, empty: "Not written yet. In a few paragraphs: the conversation the project joins, the gap it answers, what it contributes and where it holds. Write it here, or ask Claude for a first draft.", onSave: (v) => act("map", { action: "edit", framing: v }) })]));
+    out.push(section("sec:method", "Methodology", cur.method ? `${words(cur.method)} words` : "Not yet written", [
+      editable({ key: "edit:method", value: cur.method, prose: true, rows: 6, empty: "Not written yet: the design, the data and the analysis. Write it here, or tell Claude.", onSave: (v) => act("map", { action: "edit", method: v }) })]));
     const claims = (cur.claims || []).map((k) => [k, m.claims[k]]).filter(([, c]) => c);
     const allS = claims.map(([k]) => support(k));
     const nSrc = new Set(allS.flatMap((s) => [...s.supports, ...s.opposes, ...s.qualifies]).map((h) => h.split("#")[0])).size;
@@ -517,10 +602,17 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
       claims.length ? null : el("p", { class: "missing" }, "No claims attached yet. Claims are the steps of the argument; each collects the evidence for and against it."),
       ...claims.map(([k, c], i) => {
         const s = allS[i]; const key = "claim:" + k; const n = s.supports.length + s.opposes.length + s.qualifies.length;
-        return el("div", { class: "claim" }, el("div", { class: "claim-t" }, meter(s), el("span", {}, cap(c.text))),
+        const ck = "edit:claim:" + k;
+        if (isOpen(ck) && canWrite()) return el("div", { class: "claim" }, editable({ key: ck, value: c.text, rows: 2, onSave: (v) => act("map", { action: "claim", id: k, text: v }) }),
+          el("button", { class: "linkbtn", type: "button", style: "justify-self:start;color:var(--bad)", onclick: () => { S.open.delete(ck); act("map", { action: "edit", claims: (cur.claims || []).filter((x) => x !== k) }).catch(() => {}); } }, "Remove this step from the argument"));
+        return el("div", { class: "claim" }, el("div", { class: "claim-t" }, meter(s), el("span", {}, cap(c.text)), canWrite() ? penBtn("Edit this claim", () => flip(ck)) : null),
           n ? el("button", { class: "linkbtn", type: "button", style: "justify-self:start", "aria-expanded": String(isOpen(key)), onclick: () => flip(key) }, isOpen(key) ? "Hide evidence" : `Show evidence (${n})`) : el("p", { class: "missing" }, "No evidence linked yet."),
           isOpen(key) ? [...s.supports.map((h) => evidence(h, "supports")), ...s.qualifies.map((h) => evidence(h, "qualifies")), ...s.opposes.map((h) => evidence(h, "opposes"))] : null);
       }),
+      canWrite() ? (() => { const inp = el("input", { type: "text", placeholder: "Add a step to the argument, as one sentence…", "aria-label": "New claim" });
+        const add = async () => { const text = inp.value.trim(); if (!text) return; try { const r = await call("map", { action: "claim", text }); const k = String(r).match(/^K\d+/)?.[0]; if (k) await act("map", { action: "edit", claims: [...(cur.claims || []), k] }); } catch (e) { banner(errText(e), true); } };
+        inp.addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+        return el("div", { class: "mini" }, inp, el("button", { class: "btn", type: "button", onclick: add }, "Add")); })() : null,
       cur.concepts?.length ? el("div", { class: "field" }, el("h4", {}, "Concepts it rests on"), el("div", { class: "chips" }, ...cur.concepts.map((c) => el("span", { class: "chip" + (m.concepts[c]?.status === "adopted" ? " on" : "") }, conceptLabel(c))))) : null]));
 
     const hist = [...m.versions].reverse();
@@ -550,7 +642,7 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
   // ----- Concepts -----
   function viewConcepts() {
     const m = MM(); if (!m) return [el("p", { class: "empty" }, "No research map yet.")];
-    const props = (m.framework?.edges || []).filter((e) => e.status === "proposed").length;
+    const props = (m.frameworks || []).flatMap((f) => f.edges).filter((e) => e.status === "proposed").length;
     const sub = el("div", { class: "subnav", role: "group", "aria-label": "Concepts view" },
       ...[["register", "Register"], ["framework", "Framework and ontology"]].map(([k, l]) => el("button", { type: "button", "aria-pressed": String(S.ctab === k), onclick: () => { S.ctab = k; store.set("ctab", k); render(); } }, l, k === "framework" && props ? el("span", { class: "badge", style: "margin-left:6px" }, props) : null)));
     return [sub, ...(S.ctab === "framework" ? viewFramework() : viewRegister())];
@@ -598,9 +690,10 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
       meta.length ? el("div", { class: "indent" }, el("div", { class: "meta" }, ...meta.map((x) => el("span", {}, x)))) : null);
     if (open) {
       const body = el("div", { class: "body" });
+      if (canWrite()) body.append(editableField(h, "label", "Name", c.label, ""));
       body.append(editableField(h, "use", "Working definition", c.use, defs.length ? "Not agreed yet. Write one, or ask Claude to propose one from the definitions below." : "Not agreed yet."));
       if (c.scope || canWrite()) body.append(editableField(h, "scope", "Scope", c.scope, "Where the concept applies and where it does not."));
-      if (c.alt?.length) body.append(el("div", { class: "field" }, el("h4", {}, "Also called"), el("p", {}, c.alt.map(cap).join(", "))));
+      if (c.alt?.length || canWrite()) body.append(editableField(h, "alt_set", "Also called", (c.alt || []).map(cap).join(", "), "No other names. Separate names with commas."));
       const attrs = (c.attributes || []).filter((x) => defs.some(([, d]) => (d.attrs || []).includes(x)));
       if (defs.length > 1 && attrs.length) {
         attrs.sort((x, y) => defs.filter(([, d]) => (d.attrs || []).includes(y)).length - defs.filter(([, d]) => (d.attrs || []).includes(x)).length);
@@ -614,8 +707,9 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
       if (defs.length) {
         const dk = "defs:" + h; const dOpen = isOpen(dk) || defs.length <= 2;
         body.append(el("div", { class: "field" }, el("h4", {}, "How it has been defined"),
-          el("div", { class: "defs" }, ...(dOpen ? defs : defs.slice(0, 2)).map(([, d]) => el("div", { class: "def" }, el("span", { class: "yr" }, d.year || "Undated"),
-            el("div", {}, el("q", {}, d.quote), el("div", { class: "who" }, paperRef(d.h) + (d.loc ? ", " + d.loc : "") + (d.kind === "implicit" ? ", implicit" : "")))))),
+          el("div", { class: "defs" }, ...(dOpen ? defs : defs.slice(0, 2)).map(([dh, d]) => el("div", { class: "def" }, el("span", { class: "yr" }, d.year || "Undated"),
+            el("div", {}, el("q", {}, d.quote), el("div", { class: "who" }, paperRef(d.h) + (d.loc ? ", " + d.loc : "") + (d.kind === "implicit" ? ", implicit" : ""),
+              canWrite() ? [" · ", el("button", { class: "linkbtn", type: "button", style: "font-size:12px;color:var(--faint)", title: "Remove this definition from the register", onclick: () => { if (confirm("Remove this definition from the register?")) act("map", { action: "undefine", id: dh }).catch(() => {}); } }, "Remove")] : null))))),
           defs.length > 2 ? el("button", { class: "linkbtn", type: "button", onclick: () => flip(dk) }, dOpen ? "Show fewer" : `Show all ${defs.length} definitions`) : null));
       }
       const rel = m.links.filter((l) => l.from === h && ["sameas", "related"].includes(l.rel));
@@ -636,17 +730,7 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
     return item;
   }
   function editableField(h, field, label, value, empty) {
-    const key = `edit:${h}:${field}`;
-    if (isOpen(key) && canWrite()) {
-      const ta = el("textarea", { rows: "3", style: "width:100%;background:var(--leaf);border:1px solid var(--rule);border-radius:8px;padding:8px 10px;font:15px/1.45 var(--serif)" });
-      ta.value = value || "";
-      const save = async () => { S.open.delete(key); try { await act("map", { action: "concept", id: h, [field]: ta.value.trim() }); } catch { render(); } };
-      setTimeout(() => ta.focus(), 0);
-      return el("div", { class: "field" }, el("h4", {}, label), ta, el("div", { class: "mini", style: "margin-top:6px" }, el("button", { class: "btn", type: "button", onclick: save }, "Save"), el("button", { class: "linkbtn", type: "button", onclick: () => flip(key) }, "Cancel")));
-    }
-    const pen = canWrite() ? el("button", { class: "pen", type: "button", title: `Edit the ${label.toLowerCase()}`, "aria-label": `Edit the ${label.toLowerCase()}`, onclick: () => flip(key) }) : null;
-    if (pen) pen.innerHTML = PEN;
-    return el("div", { class: "field" }, el("h4", {}, label, " ", pen), value ? el("p", {}, cap(value)) : el("p", { class: "missing" }, empty));
+    return editable({ key: `edit:${h}:${field}`, label, value, empty, rows: field === "label" ? 1 : 3, onSave: (v) => act("map", field === "alt_set" ? { action: "concept", id: h, alt_set: v.split(/\s*[,;]\s*/).filter(Boolean) } : { action: "concept", id: h, [field]: v }) });
   }
   async function setConcept(h, status) {
     const c = MM().concepts[h]; const prev = c.status; c.status = status; render();
@@ -654,197 +738,405 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
   }
 
   // ----- Framework and ontology -----
-  const NW = 150, NH = 48, FW = 900;
+  const NW = 150, FW = 900;
+  const FWS = () => MM()?.frameworks || [];
+  const activeFw = () => { const m = MM(); return FWS().find((f) => f.id === m.fwActive) || FWS()[0]; };
   function edgeEvidence(e) {
     const m = MM(); if (!e.claim || !m.claims[e.claim]) return "none";
     const s = support(e.claim); return s.opposes.length ? "contested" : s.supports.length ? "supported" : "unsupported";
   }
   const EVTEXT = { supported: "Supported by evidence", contested: "Contested: some evidence goes against it", unsupported: "Claim attached, no evidence linked yet", none: "No claim attached yet" };
-  const TYPEWORD = { influences: "influences", moderates: "moderates", associated: "is associated with" };
-  function clipBox(cx, cy, tx, ty) { const dx = tx - cx, dy = ty - cy; if (!dx && !dy) return [cx, cy]; const s = Math.min(Math.abs((NW / 2 + 5) / (dx || 1e-9)), Math.abs((NH / 2 + 5) / (dy || 1e-9))); return [cx + dx * s, cy + dy * s]; }
-  function wrap2(s) { const words = cap(s).split(/\s+/); const L = [""]; for (const w of words) { if ((L.at(-1) + " " + w).trim().length > 19 && L.at(-1)) L.push(w); else L[L.length - 1] = (L.at(-1) + " " + w).trim(); } return L.length > 2 ? [L[0], clipT(L.slice(1).join(" "), 19)] : L; }
-  function edgeSentence(e) {
-    const m = MM(); const F = m.framework;
-    const to = e.type === "moderates" ? (() => { const t = F.edges.find((x) => x.id === e.to); return t ? `the effect of ${rawLabel(t.from)} on ${rawLabel(t.to)}` : e.to; })() : rawLabel(e.to);
-    // Phrased as a noun so plural concept names ("Explanations") read correctly.
-    const sign = e.sign === "+" ? "Positive influence" : e.sign === "-" ? "Negative influence" : "Influence";
-    if (e.type === "moderates") return `Moderation by ${rawLabel(e.from)} of ${to}.`;
-    if (e.type === "associated") return `Association between ${rawLabel(e.from)} and ${to}.`;
-    return `${sign} of ${rawLabel(e.from)} on ${to}.`;
+  const TYPES = [["influences", "Influences"], ["enables", "Enables"], ["constrains", "Constrains"], ["precedes", "Precedes"], ["partof", "Is part of"], ["feeds", "Feeds into"], ["produces", "Produces"], ["associated", "Is associated with"], ["custom", "Other (write the verb)"], ["moderates", "Moderates"]];
+  const WORD = { enables: "enables", constrains: "constrains", precedes: "precedes", partof: "part of", feeds: "feeds", produces: "produces" };
+  function wrapLabel(s) { const L = [""]; for (const w of cap(s).split(/\s+/)) { if ((L.at(-1) + " " + w).trim().length > 19 && L.at(-1)) L.push(w); else L[L.length - 1] = (L.at(-1) + " " + w).trim(); } return L.length > 3 ? [L[0], L[1], clipT(L.slice(2).join(" "), 19)] : L; }
+  const nodeH = (c) => 26 + wrapLabel(rawLabel(c)).length * 15;
+  function clipBox(cx, cy, h, tx, ty) { const dx = tx - cx, dy = ty - cy; if (!dx && !dy) return [cx, cy]; const s = Math.min(Math.abs((NW / 2 + 5) / (dx || 1e-9)), Math.abs((h / 2 + 5) / (dy || 1e-9))); return [cx + dx * s, cy + dy * s]; }
+  function edgeSentence(e, F) {
+    const t = F.edges.find((x) => x.id === e.to);
+    const to = e.type === "moderates" ? (t ? `the relationship from ${rawLabel(t.from)} to ${rawLabel(t.to)}` : e.to) : rawLabel(e.to);
+    const pre = e.label ? `${e.label}: ` : "";
+    if (e.type === "moderates") return `${pre}${cap(rawLabel(e.from))} moderates ${to}${e.sign ? (e.sign === "+" ? ", strengthening it" : ", weakening it") : ""}.`;
+    if (e.type === "associated") return `${pre}${cap(rawLabel(e.from))} is associated with ${to}.`;
+    if (e.type === "custom") return `${pre}${cap(rawLabel(e.from))} ${e.verb} ${to}.`;
+    if (e.type === "influences") return `${pre}${cap(rawLabel(e.from))} has ${e.sign === "+" ? "a positive" : e.sign === "-" ? "a negative" : "an"} influence on ${to}.`;
+    if (e.type === "feeds") return `${pre}${cap(rawLabel(e.from))} feeds into ${to}.`;
+    return `${pre}${cap(rawLabel(e.from))} ${WORD[e.type]} ${to}.`;
   }
+  async function fwAct(op, extra = {}) { const F = activeFw(); return act("map", { action: "framework", op, fw: F?.id, ...extra }); }
+
   function viewFramework() {
-    const m = MM(); const F = m.framework || { nodes: {}, edges: [], versions: [] };
-    const out = [el("p", { class: "lede" }, "The conceptual framework: which concepts the project relates, and how. Drag boxes to arrange them; the arrangement becomes the figure.")];
-    const inFw = new Set(Object.keys(F.nodes));
-    const avail = Object.entries(m.concepts).filter(([h, c]) => !inFw.has(h) && ["adopted", "candidate"].includes(c.status));
-    if (canWrite()) {
-      const sel = el("select", { "aria-label": "Add a concept to the framework" }, el("option", { value: "" }, "Add a concept…"), ...avail.map(([h, c]) => el("option", { value: h }, cap(c.label))));
-      sel.addEventListener("change", () => { if (sel.value) act("map", { action: "framework", op: "add_node", id: sel.value }).catch(() => {}); });
-      out.push(el("div", { class: "fwbar" }, avail.length ? sel : null,
-        el("button", { class: "btn", type: "button", "aria-pressed": String(S.fw.connect), onclick: () => { S.fw.connect = !S.fw.connect; S.fw.from = null; S.fw.pending = null; render(); } }, S.fw.connect ? "Connecting…" : "Connect two concepts"),
-        el("button", { class: "btn", type: "button", style: "margin-left:auto", title: "Writes research-framework.svg, black and white, into the project folder", onclick: async () => { try { const r = await call("map", { action: "framework", op: "export" }); banner(r.replace(/^Wrote /, "Saved the figure to ")); } catch (e) { banner(errText(e), true); } } }, "Save figure")));
+    const m = MM(); const F = activeFw(); const out = [];
+    out.push(el("p", { class: "lede" }, F?.kind === "pipeline" ? "How the system or model fits together: its components, the data between them and the concepts they rest on. Each framework keeps its own versions." : "Your frameworks: how the project relates its concepts. Keep one per argument, study or alternative account, or a pipeline for a method or system paper; each keeps its own versions."));
+    // Framework bar: choose, rename, create, delete
+    const fwSel = el("select", { "aria-label": "Framework" }, ...FWS().map((f) => el("option", { value: f.id, selected: f.id === F.id || null }, f.name)));
+    fwSel.addEventListener("change", () => { S.fw = { ...S.fw, sel: null, pending: null, view: null, compare: null }; act("map", { action: "framework", op: "activate", fw: fwSel.value }).catch(() => {}); });
+    const bar = el("div", { class: "fwbar" }, fwSel);
+    if (canWrite() && !S.fw.renaming) {
+      const kindSel = el("select", { "aria-label": "Kind of framework", title: "A conceptual model relates concepts; a pipeline also has components such as modules, data and steps" }, el("option", { value: "conceptual", selected: F.kind !== "pipeline" || null }, "Conceptual model"), el("option", { value: "pipeline", selected: F.kind === "pipeline" || null }, "Pipeline or architecture"));
+      kindSel.addEventListener("change", () => fwAct("rename", { kind: kindSel.value }).catch(() => {}));
+      bar.append(kindSel);
     }
-    const hint = S.fw.connect ? (S.fw.from ? `From ${conceptLabel(S.fw.from)}: now click the concept it relates to, or an arrow it moderates.` : "Click the concept the relationship starts from.") : "";
-    out.push(el("p", { class: "fwhint" }, hint));
-    if (!inFw.size) out.push(el("p", { class: "empty" }, "Empty so far. Add concepts above, or ask Claude to propose a framework from the idea's claims; its suggestions appear here for you to accept or reject."));
-    else out.push(el("div", { class: "canvas" }, drawFramework(F)));
+    if (canWrite()) {
+      if (S.fw.renaming) {
+        const inp = el("input", { class: "ptitle-in", value: F.name, "aria-label": "Framework name" });
+        const done = (save) => { S.fw.renaming = false; if (save && inp.value.trim() && inp.value.trim() !== F.name) fwAct("rename", { name: inp.value.trim() }).catch(() => {}); else render(); };
+        inp.addEventListener("keydown", (e) => { if (e.key === "Enter") done(true); if (e.key === "Escape") done(false); }); inp.addEventListener("blur", () => done(true)); setTimeout(() => inp.focus(), 0);
+        bar.replaceChildren(inp);
+      } else {
+        const pen = el("button", { class: "pen", type: "button", title: "Rename this framework", "aria-label": "Rename this framework", onclick: () => { S.fw.renaming = true; render(); } }); pen.innerHTML = PEN;
+        bar.append(pen, el("button", { class: "linkbtn", type: "button", onclick: () => { S.fw.creating = !S.fw.creating; render(); } }, "New framework"),
+          FWS().length > 1 ? el("button", { class: "linkbtn", type: "button", style: "color:var(--bad)", onclick: () => { if (confirm(`Delete "${F.name}" with its versions?`)) fwAct("delete", { confirmed: true }).catch(() => {}); } }, "Delete") : null);
+      }
+      bar.append(el("span", { style: "margin-left:auto;display:inline-flex;gap:8px;flex-wrap:wrap" },
+        el("button", { class: "btn", type: "button", title: "Lay out left to right: causes on the left, outcomes on the right", onclick: () => fwAct("arrange").catch(() => {}) }, "Arrange"),
+        el("button", { class: "btn", type: "button", title: "Write a black-and-white SVG into the project folder", onclick: async () => { try { const r = await call("map", { action: "framework", op: "export", fw: F.id }); banner(r.replace(/^Wrote /, "Saved the figure to ")); } catch (e) { banner(errText(e), true); } } }, "Save figure")));
+    }
+    out.push(bar);
+    if (S.fw.creating && canWrite()) {
+      const inp = el("input", { type: "text", placeholder: "Name, for example: Alternative account", "aria-label": "New framework name" });
+      const copy = el("input", { type: "checkbox", id: "fwcopy" });
+      const kind = el("select", { "aria-label": "Kind of framework" }, el("option", { value: "conceptual" }, "Conceptual model"), el("option", { value: "pipeline" }, "Pipeline or architecture"));
+      const go = () => { S.fw.creating = false; act("map", { action: "framework", op: "create", name: inp.value.trim(), kind: kind.value, copy: copy.checked ? F.id : undefined }).catch(() => {}); };
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+      out.push(el("div", { class: "panel" }, el("div", { class: "mini" }, inp, kind, el("label", { class: "missing", style: "display:inline-flex;gap:6px;align-items:center" }, copy, `Start from a copy of "${F.name}"`), el("button", { class: "btn primary", type: "button", onclick: go }, "Create"))));
+    }
+    // What the canvas shows: the working framework, a saved version, or a comparison
+    const viewing = S.fw.view ? F.versions.find((v) => v.v === S.fw.view) : null;
+    const comparing = S.fw.compare ? F.versions.find((v) => v.v === S.fw.compare) : null;
+    if (viewing) out.push(el("div", { class: "notice" }, `Viewing ${viewing.v} of "${F.name}", saved ${fmtDate(viewing.date)}${viewing.note ? ": " + cap(viewing.note) : ""}. Read only.`,
+      el("div", { class: "actions" }, el("button", { class: "btn", type: "button", onclick: () => { S.fw.view = null; S.fw.compare = viewing.v; render(); } }, "Compare with the working version"),
+        canWrite() ? el("button", { class: "btn", type: "button", onclick: () => { if (confirm(`Replace the working framework with ${viewing.v}? Save the current state first if you want to keep it.`)) { S.fw.view = null; fwAct("restore", { id: viewing.v, confirmed: true }).catch(() => {}); } } }, "Restore it") : null,
+        canWrite() ? el("button", { class: "btn", type: "button", onclick: () => { S.fw.view = null; act("map", { action: "framework", op: "create", name: `${F.name} (from ${viewing.v})`, from_version: viewing.v }).catch(() => {}); } }, "Branch into a new framework") : null,
+        el("button", { class: "linkbtn", type: "button", onclick: () => { S.fw.view = null; render(); } }, "Back to the working version"))));
+    if (comparing) out.push(el("div", { class: "notice" }, `Comparing the working version with ${comparing.v} (${fmtDate(comparing.date)}). Green was added since, red was removed, amber changed.`,
+      el("div", { class: "actions" }, el("button", { class: "linkbtn", type: "button", onclick: () => { S.fw.compare = null; render(); } }, "Stop comparing"))));
+    const shown = viewing ? { nodes: viewing.nodes, edges: viewing.edges } : F;
+    const readOnly = !!viewing || !canWrite();
+    out.push(el("p", { class: "fwhint" }, readOnly ? "" : S.fw.linking ? "Release on a concept, or on an arrow to moderate it." : `Drag a box to move it. Drag from its small circle to another box (or onto an arrow) to relate them. Double-click empty space to add ${F.kind === "pipeline" ? "a component or concept" : "a concept"}. Select and press Delete to remove.`));
+    if (!Object.keys(shown.nodes).length && !viewing) out.push(el("p", { class: "empty" }, "Empty so far. Double-click the space below to add a concept, or ask Claude to propose a framework from the idea's claims."));
+    out.push(el("div", { class: "canvas" }, drawFramework(shown, { readOnly, compareWith: comparing, F })));
     out.push(el("div", { class: "legend" }, el("span", {}, el("i"), "Supported"), el("span", {}, el("i", { class: "d" }), "No evidence yet"), el("span", {}, el("i", { class: "c" }), "Contested"), el("span", {}, el("i", { class: "p" }), "Suggested by Claude")));
-    if (S.fw.pending) out.push(pendingPanel());
-    else if (S.fw.sel && /^E/.test(S.fw.sel)) out.push(edgePanel(F.edges.find((e) => e.id === S.fw.sel)));
-    else if (S.fw.sel && /^C/.test(S.fw.sel) && F.nodes[S.fw.sel]) out.push(nodePanel(S.fw.sel));
-    const props = F.edges.filter((e) => e.status === "proposed");
-    if (props.length) out.push(el("div", { class: "panel" }, el("h3", {}, "Claude suggests"), ...props.map((e) => el("div", { class: "mini", style: "justify-content:space-between" },
-      el("span", {}, edgeSentence(e), e.claim ? el("span", { class: "missing" }, ` Because: ${clipT(m.claims[e.claim]?.text, 90)}`) : null),
-      canWrite() ? el("span", { class: "mini" }, el("button", { class: "btn small", type: "button", onclick: () => act("map", { action: "framework", op: "edit_edge", id: e.id, status: "accepted" }).catch(() => {}) }, "Accept"),
-        el("button", { class: "btn small", type: "button", onclick: () => act("map", { action: "framework", op: "edit_edge", id: e.id, status: "rejected" }).catch(() => {}) }, "Reject")) : null))));
+    if (comparing) out.push(compareList(comparing, F));
+    if (!viewing) {
+      if (S.fw.adding) out.push(addPanel());
+      if (S.fw.pending) out.push(pendingPanel(F));
+      else if (S.fw.sel && /^E/.test(S.fw.sel)) out.push(edgePanel(F.edges.find((e) => e.id === S.fw.sel), F));
+      else if (S.fw.sel && /^[CX]/.test(S.fw.sel) && F.nodes[S.fw.sel]) out.push(nodePanel(S.fw.sel));
+      const props = F.edges.filter((e) => e.status === "proposed");
+      const hot = (id, on) => document.querySelectorAll(`.canvas [data-edge="${id}"]`).forEach((x) => x.classList.toggle("hot", on));
+      if (props.length) out.push(el("div", { class: "panel" }, el("h3", {}, "Claude suggests"), el("p", { class: "hint", style: "margin:0" }, "Point at a suggestion to see its arrow; click an arrow to open it."), ...props.map((e) => el("div", { class: "sugg", onmouseenter: () => hot(e.id, true), onmouseleave: () => hot(e.id, false), onfocusin: () => hot(e.id, true), onfocusout: () => hot(e.id, false) },
+        el("span", {}, edgeSentence(e, F), e.claim ? el("span", { class: "missing" }, ` Because: ${clipT(m.claims[e.claim]?.text, 90)}`) : null),
+        canWrite() ? el("span", { class: "mini" }, el("button", { class: "btn small", type: "button", onclick: () => fwAct("edit_edge", { id: e.id, status: "accepted" }).catch(() => {}) }, "Accept"),
+          el("button", { class: "btn small", type: "button", onclick: () => fwAct("edit_edge", { id: e.id, status: "rejected" }).catch(() => {}) }, "Reject")) : null))));
+    }
     // Versions
     const vk = "fw:versions";
-    out.push(el("details", { class: "plain", open: isOpen(vk) || null, ontoggle: keepOpen(vk) }, el("summary", {}, `Versions of the framework (${F.versions.length})`),
+    out.push(el("details", { class: "plain", open: isOpen(vk) || null, ontoggle: keepOpen(vk) }, el("summary", {}, `Versions of "${F.name}" (${F.versions.length})`),
       el("div", { style: "display:grid;gap:8px;padding-top:4px" },
-        canWrite() ? (() => { const inp = el("input", { type: "text", placeholder: "What changed, in a few words", "aria-label": "Version note" }); return el("div", { class: "mini" }, inp, el("button", { class: "btn", type: "button", onclick: () => act("map", { action: "framework", op: "save", note: inp.value.trim() }).catch(() => {}) }, "Save this version")); })() : null,
-        ...[...F.versions].reverse().map((v) => el("div", { class: "mini", style: "justify-content:space-between" }, el("span", {}, el("b", { style: "font-weight:500" }, v.v), ` ${fmtDate(v.date)}${v.note ? ": " + cap(v.note) : ""} · ${plural(Object.keys(v.nodes).length, "concept")}, ${plural(v.edges.length, "relationship")}`),
-          canWrite() ? el("button", { class: "linkbtn", type: "button", onclick: () => { if (confirm(`Replace the working framework with ${v.v}? Save the current one first if you want to keep it.`)) act("map", { action: "framework", op: "restore", id: v.v, confirmed: true }).catch(() => {}); } }, "Restore") : null)))));
+        canWrite() ? (() => { const inp = el("input", { type: "text", placeholder: "What this version captures, in a few words", "aria-label": "Version note" }); return el("div", { class: "mini" }, inp, el("button", { class: "btn", type: "button", onclick: () => fwAct("save", { note: inp.value.trim() }).catch(() => {}) }, "Save this version")); })() : null,
+        ...[...F.versions].reverse().map((v) => el("div", { class: "vrow" }, el("span", {}, el("b", {}, v.v), ` ${fmtDate(v.date)}${v.note ? ": " + cap(v.note) : ""}`, el("span", { class: "missing" }, ` · ${plural(Object.keys(v.nodes).length, "concept")}, ${plural(v.edges.length, "relationship")}`)),
+          el("span", { class: "mini" }, el("button", { class: "linkbtn", type: "button", onclick: () => { S.fw.view = v.v; S.fw.compare = null; S.fw.sel = null; render(); } }, "View"),
+            el("button", { class: "linkbtn", type: "button", onclick: () => { S.fw.compare = v.v; S.fw.view = null; render(); } }, "Compare"))))))) ;
     out.push(el("h2", { class: "h" }, "Working ontology"));
-    out.push(el("p", { class: "lede", style: "margin-bottom:10px" }, "What each concept is a kind of, or a part of. Place concepts to build the hierarchy; definitions travel with them."));
-    out.push(viewOntology());
+    out.push(el("p", { class: "lede", style: "margin-bottom:10px" }, "What each concept is a kind of, or a part of, and what it relates to. Rename, define and reorganise here; save versions as the vocabulary settles."));
+    out.push(...viewOntology());
     return out;
   }
-  function drawFramework(F) {
+
+  function drawFramework(G, { readOnly, compareWith, F }) {
     const m = MM();
-    const nodes = Object.entries(F.nodes);
-    const Hh = Math.max(340, Math.max(...nodes.map(([, n]) => n.y)) + NH / 2 + 40);
+    const pos = (h) => (S.drag?.id === h ? S.drag.p : G.nodes[h] || compareWith?.nodes[h]);
+    const ghostNodes = compareWith ? Object.keys(compareWith.nodes).filter((h) => !G.nodes[h]) : [];
+    const all = [...Object.keys(G.nodes), ...ghostNodes];
+    const Hh = Math.max(380, Math.max(0, ...all.map((h) => pos(h).y + nodeH(h) / 2)) + 50);
     const svg = sv("svg", { viewBox: `0 0 ${FW} ${Hh}`, role: "img", "aria-label": "Conceptual framework" });
-    const colour = { supported: "var(--ink)", contested: "var(--bad)", unsupported: "var(--faint)", none: "var(--faint)", proposed: "var(--accent)" };
+    const colour = { supported: "var(--ink)", contested: "var(--bad)", unsupported: "var(--faint)", none: "var(--faint)", proposed: "var(--accent)", added: "var(--good)", removed: "var(--bad)", changed: "var(--warn)" };
     svg.append(sv("defs", {}, ...Object.entries(colour).map(([k, c]) => sv("marker", { id: "ar-" + k, viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" }, sv("path", { d: "M0 0L10 5L0 10z", fill: c })))));
-    svg.addEventListener("click", (e) => { if (e.target === svg) { S.fw.sel = null; if (!S.fw.from) S.fw.pending = null; render(); } });
-    const pos = (h) => (S.drag?.id === h ? S.drag.p : F.nodes[h]);
-    const mid = {};
-    const live = F.edges.filter((e) => e.status !== "rejected");
-    const edgeG = (e, x1, y1, x2, y2) => {
-      const ev = e.status === "proposed" ? "proposed" : edgeEvidence(e);
-      const g = sv("g", { class: `fw-edge ${ev}${S.fw.sel === e.id ? " sel" : ""}`, role: "button", "aria-label": edgeSentence(e), onclick: (ev2) => { ev2.stopPropagation(); edgeClick(e); } });
-      g.append(sv("line", { class: "hit", x1, y1, x2, y2 }), sv("line", { class: "ln", x1, y1, x2, y2, "marker-end": e.type === "associated" ? null : `url(#ar-${ev})` }));
-      return g;
+    if (!readOnly) {
+      svg.addEventListener("click", (e) => { if (e.target === svg) { S.fw.sel = null; S.fw.pending = null; S.fw.adding = null; render(); } });
+      svg.addEventListener("dblclick", (e) => { if (e.target !== svg) return; const p = svgPoint(svg, e); S.fw.adding = { x: Math.round(p.x), y: Math.round(p.y) }; S.fw.sel = null; render(); });
+    }
+    const key = (e) => `${e.from}|${e.type}|${e.to}`;
+    const cmp = compareWith ? new Map(compareWith.edges.map((e) => [key(e), e])) : null;
+    const status = (e) => {
+      if (cmp) { const o = cmp.get(key(e)); if (!o) return "added"; if (o.sign !== e.sign || o.claim !== e.claim || o.label !== e.label) return "changed"; }
+      if (e.status === "proposed") return "proposed";
+      // In a pipeline an arrow is a data flow, not a claim, so it is drawn solid unless a claim attached to it is contested.
+      if (F?.kind === "pipeline" && !e.claim) return "supported";
+      return edgeEvidence(e);
     };
-    const layer = sv("g");
-    for (const e of live.filter((e) => e.type !== "moderates")) {
-      const a = pos(e.from), b = pos(e.to); if (!a || !b) continue;
-      const [sx, sy] = clipBox(a.x, a.y, b.x, b.y), [tx, ty] = clipBox(b.x, b.y, a.x, a.y);
-      mid[e.id] = [(sx + tx) / 2, (sy + ty) / 2];
-      layer.append(edgeG(e, sx, sy, tx, ty));
-      if (e.sign) layer.append(sv("text", { class: "fw-sign", x: mid[e.id][0] + 8, y: mid[e.id][1] - 7, fill: "var(--ink-2)" }, e.sign === "-" ? "−" : "+"));
-    }
-    for (const e of live.filter((e) => e.type === "moderates")) {
-      const a = pos(e.from), t = mid[e.to]; if (!a || !t) continue;
-      const [sx, sy] = clipBox(a.x, a.y, t[0], t[1]);
-      layer.append(edgeG(e, sx, sy, t[0], t[1]));
-    }
+    const live = G.edges.filter((e) => e.status !== "rejected");
+    const removed = cmp ? compareWith.edges.filter((o) => !live.some((e) => key(e) === key(o))) : [];
+    const mid = {}, at = {};
+    const layer = sv("g"), tags = sv("g", { "pointer-events": "none" });
+    const boxesExcept = (...ids) => all.filter((h) => !ids.includes(h)).map((h) => ({ ...pos(h), h: nodeH(h) }));
+    const pair = (e) => live.some((x) => x !== e && x.from === e.to && x.to === e.from);
+    const drawEdge = (e, st, ghost) => {
+      const a = pos(e.from); if (!a) return;
+      let tx, ty, sx, sy, path;
+      if (e.type === "moderates") { const t = mid[e.to]; if (!t) return; [sx, sy] = clipBox(a.x, a.y, nodeH(e.from), t[0], t[1]); tx = t[0]; ty = t[1]; path = `M${sx} ${sy}L${tx} ${ty}`; }
+      else {
+        const b = pos(e.to); if (!b) return;
+        [sx, sy] = clipBox(a.x, a.y, nodeH(e.from), b.x, b.y); [tx, ty] = clipBox(b.x, b.y, nodeH(e.to), a.x, a.y);
+        // A moderated arrow also bends so that its moderator can reach the middle without crossing a box.
+        const mods = live.filter((x) => x.type === "moderates" && x.to === e.id).map((x) => pos(x.from)).filter(Boolean);
+        const penalty = mods.length ? (mx, my) => mods.reduce((n, mp) => n + segHits(mp.x, mp.y, mx, my, all.filter((h) => pos(h) !== mp).map((h) => ({ ...pos(h), h: nodeH(h) }))), 0) : null;
+        const r = route(sx, sy, tx, ty, boxesExcept(e.from, e.to), pair(e) ? 44 : 0, penalty); path = r.d; mid[e.id] = r.mid; at[e.id] = r.at;
+      }
+      const g = sv("g", { class: `fw-edge ${st}${S.fw.sel === e.id ? " sel" : ""}${ghost ? " ghost" : ""}`, "data-edge": e.id, role: "button", "aria-label": edgeSentence(e, F) });
+      if (!ghost) g.addEventListener("click", (ev) => { ev.stopPropagation(); S.fw.sel = S.fw.sel === e.id ? null : e.id; S.fw.pending = null; S.fw.adding = null; render(); });
+      g.append(sv("path", { class: "hit", d: path }), sv("path", { class: "ln", d: path, "marker-end": e.type === "associated" ? null : `url(#ar-${st})` }));
+      const tag = [e.label, e.sign === "-" ? "−" : e.sign, e.type === "custom" ? e.verb : WORD[e.type]].filter(Boolean).join(" ");
+      const pill = (x, y, text) => { const w = Math.round(text.length * 6.8 + 14); return sv("g", { class: `fw-pill ${st}`, transform: `translate(${Math.round(x)},${Math.round(y)})` }, sv("rect", { x: 0, y: -10, width: w, height: 20, rx: 10 }), sv("text", { x: 7, y: 4 }, text)); };
+      if (e.type === "moderates") {
+        // The moderator lands on a junction dot in the middle of the arrow it moderates; its sign sits beside the dot.
+        tags.append(sv("circle", { class: `fw-junction ${st}`, cx: tx, cy: ty, r: 5 }));
+        if (tag) tags.append(pill(tx + 9, ty - 16, tag));
+      } else if (tag) {
+        // A moderated arrow keeps its middle free for the junction, so its own label sits a third of the way along.
+        const moderated = live.some((x) => x.type === "moderates" && x.to === e.id);
+        const [px, py] = moderated && at[e.id] ? at[e.id](0.3) : mid[e.id];
+        const w = Math.round(tag.length * 6.8 + 14);
+        // On a short arrow the badge would hide it, so it moves to one side, whichever is clear of boxes.
+        const L = Math.hypot(tx - sx, ty - sy) || 1;
+        let [cx, cy] = [px, py];
+        if (L < w + 60) {
+          const nx = -(ty - sy) / L, ny = (tx - sx) / L, boxes = all.map((h) => ({ ...pos(h), h: nodeH(h) }));
+          const clear = (x, y) => boxes.every((b) => Math.abs(x - b.x) > NW / 2 + w / 2 + 2 || Math.abs(y - b.y) > b.h / 2 + 12);
+          const opts = [[px + nx * 18, py + ny * 18], [px - nx * 18, py - ny * 18], [px, py - 22], [px, py + 22]];
+          [cx, cy] = opts.find(([x, y]) => clear(x, y)) || [px, py];
+        }
+        tags.append(pill(cx - w / 2, cy, tag));
+      }
+      layer.append(g);
+    };
+    for (const e of live.filter((e) => e.type !== "moderates")) drawEdge(e, status(e));
+    for (const e of live.filter((e) => e.type === "moderates")) drawEdge(e, status(e));
+    for (const e of removed.filter((e) => e.type !== "moderates")) drawEdge(e, "removed", true);
     svg.append(layer);
-    for (const [h, n0] of nodes) {
-      const n = pos(h); const c = m.concepts[h];
-      const lines = wrap2(c?.label || h);
-      const g = sv("g", { class: `fw-node${c?.status === "candidate" ? " cand" : ""}${S.fw.sel === h ? " sel" : ""}${S.fw.from === h ? " from" : ""}`, transform: `translate(${n.x - NW / 2},${n.y - NH / 2})`, tabindex: "0", role: "button", "aria-label": cap(c?.label || h) },
-        sv("rect", { width: NW, height: NH, rx: "8" }),
-        ...lines.map((l, i) => sv("text", { x: NW / 2, y: lines.length > 1 ? (i ? 33 : 19) : 29, "text-anchor": "middle" }, l)));
-      g.addEventListener("pointerdown", (ev) => startDrag(ev, h, svg));
-      g.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); nodeClick(h); } });
+    const link = sv("path", { class: "fw-link", d: "" }); svg.append(link);
+    for (const h of all) {
+      const n = pos(h); const c = m.concepts[h]; const lines = wrapLabel(rawLabel(h)); const hh = nodeH(h);
+      const ghost = !G.nodes[h];
+      const added = compareWith && !compareWith.nodes[h];
+      const g = sv("g", { class: `fw-node${/^X/.test(h) ? " comp" : ""}${c?.status === "candidate" ? " cand" : ""}${S.fw.sel === h ? " sel" : ""}${ghost ? " ghost" : ""}${added ? " added" : ""}`, "data-node": h, transform: `translate(${n.x - NW / 2},${n.y - hh / 2})`, tabindex: readOnly ? null : "0", role: "button", "aria-label": cap(rawLabel(h)) },
+        sv("rect", { width: NW, height: hh, rx: "8" }),
+        ...lines.map((l, i) => sv("text", { x: NW / 2, y: hh / 2 - (lines.length - 1) * 7.5 + i * 15 + 5, "text-anchor": "middle" }, l)));
+      if (!readOnly && !ghost) {
+        const handle = sv("circle", { class: "fw-handle", cx: NW, cy: hh / 2, r: 6 });
+        handle.addEventListener("pointerdown", (ev) => startLink(ev, h, svg, link));
+        g.append(handle);
+        g.addEventListener("pointerdown", (ev) => { if (ev.target !== handle) startDrag(ev, h, svg); });
+        g.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); S.fw.sel = h; render(); } });
+      }
       svg.append(g);
     }
+    svg.append(tags);
     return svg;
   }
+  function segHits(x1, y1, x2, y2, boxes) {
+    let n = 0;
+    for (let i = 2; i < 18; i++) { const t = i / 20, x = x1 + (x2 - x1) * t, y = y1 + (y2 - y1) * t; for (const b of boxes) if (Math.abs(x - b.x) < NW / 2 + 6 && Math.abs(y - b.y) < b.h / 2 + 6) n++; }
+    return n;
+  }
+  function route(sx, sy, tx, ty, boxes, bend0 = 0, penalty = null) {
+    const dx = tx - sx, dy = ty - sy, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+    const hits = (cx, cy) => {
+      let n = 0;
+      for (let i = 1; i < 20; i++) {
+        const t = i / 20, u = 1 - t, x = u * u * sx + 2 * u * t * cx + t * t * tx, y = u * u * sy + 2 * u * t * cy + t * t * ty;
+        for (const b of boxes) if (Math.abs(x - b.x) < NW / 2 + 8 && Math.abs(y - b.y) < b.h / 2 + 8) n++;
+      }
+      return n;
+    };
+    let best = null;
+    for (const off of [bend0, 50, -50, 100, -100, 160, -160]) {
+      const cx = (sx + tx) / 2 + nx * off, cy = (sy + ty) / 2 + ny * off, n = hits(cx, cy) + (penalty ? 3 * penalty(0.25 * sx + 0.5 * cx + 0.25 * tx, 0.25 * sy + 0.5 * cy + 0.25 * ty) : 0);
+      if (!best || n < best.n) best = { n, cx, cy };
+      if (n === 0) break;
+    }
+    const { cx, cy } = best;
+    const at = (t) => { const u = 1 - t; return [u * u * sx + 2 * u * t * cx + t * t * tx, u * u * sy + 2 * u * t * cy + t * t * ty]; };
+    return { d: `M${sx} ${sy}Q${cx} ${cy} ${tx} ${ty}`, mid: at(0.5), at };
+  }
+  function svgPoint(svg, e) { const r = svg.getBoundingClientRect(); const vb = svg.viewBox.baseVal; return { x: (e.clientX - r.left) / r.width * vb.width, y: (e.clientY - r.top) / r.height * vb.height }; }
+  function redrawCanvas() { const cv = document.querySelector(".canvas"); const F = activeFw(); if (cv && F) cv.replaceChildren(drawFramework(F, { readOnly: false, compareWith: S.fw.compare ? F.versions.find((v) => v.v === S.fw.compare) : null, F })); }
   function startDrag(ev, h, svg) {
-    if (!canWrite()) { nodeClick(h); return; }
     ev.preventDefault();
-    const pt = (e) => { const r = svg.getBoundingClientRect(); const vb = svg.viewBox.baseVal; return { x: (e.clientX - r.left) / r.width * vb.width, y: (e.clientY - r.top) / r.height * vb.height }; };
-    const start = pt(ev), base = { ...MM().framework.nodes[h] };
+    const start = svgPoint(svg, ev), base = { ...activeFw().nodes[h] };
     S.drag = { id: h, p: base, moved: false };
-    const move = (e) => { const p = pt(e); const dx = p.x - start.x, dy = p.y - start.y; if (Math.abs(dx) + Math.abs(dy) > 3) S.drag.moved = true;
-      S.drag.p = { x: Math.max(NW / 2 + 4, Math.min(FW - NW / 2 - 4, base.x + dx)), y: Math.max(NH / 2 + 4, base.y + dy) }; const cv = document.querySelector(".canvas"); if (cv) cv.replaceChildren(drawFramework(MM().framework)); };
+    const move = (e) => { const p = svgPoint(svg, e); const dx = p.x - start.x, dy = p.y - start.y; if (Math.abs(dx) + Math.abs(dy) > 3) S.drag.moved = true;
+      const snap = (v) => Math.round(v / 10) * 10;
+      S.drag.p = { x: Math.max(NW / 2 + 4, Math.min(FW - NW / 2 - 4, snap(base.x + dx))), y: Math.max(30, snap(base.y + dy)) }; redrawCanvas(); };
     const up = async () => {
       window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
       const d = S.drag; S.drag = null;
-      if (!d.moved) { nodeClick(h); return; }
-      MM().framework.nodes[h] = { x: Math.round(d.p.x), y: Math.round(d.p.y) };
-      try { await call("map", { action: "framework", op: "move", id: h, x: d.p.x, y: d.p.y }); } catch (e) { banner(errText(e), true); }
+      if (!d.moved) { S.fw.sel = S.fw.sel === h ? null : h; S.fw.pending = null; S.fw.adding = null; render(); return; }
+      activeFw().nodes[h] = { x: d.p.x, y: d.p.y };
+      try { await call("map", { action: "framework", op: "move", fw: activeFw().id, id: h, x: d.p.x, y: d.p.y }); } catch (e) { banner(errText(e), true); }
     };
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
   }
-  function nodeClick(h) {
-    if (S.fw.connect && canWrite()) {
-      if (!S.fw.from) S.fw.from = h;
-      else if (S.fw.from === h) S.fw.from = null;
-      else { S.fw.pending = { from: S.fw.from, to: h, type: "influences", sign: "+", claim: "" }; S.fw.from = null; S.fw.connect = false; }
-    } else S.fw.sel = S.fw.sel === h ? null : h;
-    render();
-  }
-  function edgeClick(e) {
-    if (S.fw.connect && S.fw.from && canWrite()) { S.fw.pending = { from: S.fw.from, to: e.id, type: "moderates", sign: "", claim: "" }; S.fw.from = null; S.fw.connect = false; }
-    else S.fw.sel = S.fw.sel === e.id ? null : e.id;
-    render();
+  function startLink(ev, h, svg, link) {
+    ev.preventDefault(); ev.stopPropagation();
+    const a = activeFw().nodes[h]; S.fw.linking = true; S.drag = { id: null };
+    const move = (e) => { const p = svgPoint(svg, e); link.setAttribute("d", `M${a.x + NW / 2} ${a.y}L${p.x} ${p.y}`); };
+    const up = (e) => {
+      window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+      S.fw.linking = false; S.drag = null; link.setAttribute("d", "");
+      const hit = document.elementsFromPoint(e.clientX, e.clientY);
+      const node = hit.map((x) => x.closest?.("[data-node]")).find(Boolean), edge = hit.map((x) => x.closest?.("[data-edge]")).find(Boolean);
+      const pipe = activeFw().kind === "pipeline";
+      if (node && node.dataset.node !== h) S.fw.pending = { from: h, to: node.dataset.node, type: pipe ? "feeds" : "influences", sign: pipe ? "" : "+", claim: "", verb: "", label: "" };
+      else if (edge) S.fw.pending = { from: h, to: edge.dataset.edge, type: "moderates", sign: "", claim: "", verb: "", label: "" };
+      render();
+    };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
   }
   function claimSelect(value, onchange) {
     const m = MM();
     const s = el("select", { "aria-label": "Claim that justifies it" }, el("option", { value: "" }, "No claim yet"), ...Object.entries(m.claims).filter(([, c]) => c.status !== "dropped").map(([k, c]) => el("option", { value: k, selected: k === value || null }, clipT(cap(c.text), 70))));
     s.addEventListener("change", () => onchange(s.value)); return s;
   }
-  function pendingPanel() {
+  function relationControls(p, onChange) {
+    const isMod = p.type === "moderates";
+    const typeSel = el("select", { "aria-label": "Kind of relationship", disabled: isMod || null }, ...TYPES.filter(([k]) => isMod ? k === "moderates" : k !== "moderates").map(([k, l]) => el("option", { value: k, selected: k === p.type || null }, l)));
+    const signSel = el("select", { "aria-label": "Direction" }, ...[["+", isMod ? "Strengthens" : "Positive"], ["-", isMod ? "Weakens" : "Negative"], ["", "Direction open"]].map(([k, l]) => el("option", { value: k, selected: k === p.sign || null }, l)));
+    const verb = el("input", { type: "text", placeholder: "Verb, for example: shapes", value: p.verb || "", style: "max-width:200px", "aria-label": "Verb" });
+    const hyp = el("input", { type: "text", placeholder: "Label, e.g. H1", value: p.label || "", style: "max-width:110px", "aria-label": "Label such as H1" });
+    typeSel.addEventListener("change", () => onChange({ type: typeSel.value }));
+    signSel.addEventListener("change", () => onChange({ sign: signSel.value }));
+    verb.addEventListener("change", () => onChange({ verb: verb.value.trim() }));
+    hyp.addEventListener("change", () => onChange({ hypothesis: hyp.value.trim() }));
+    return el("div", { class: "mini" }, typeSel, ["influences", "moderates"].includes(p.type) ? signSel : null, p.type === "custom" ? verb : null, hyp);
+  }
+  function pendingPanel(F) {
     const p = S.fw.pending;
-    const typeSel = el("select", { "aria-label": "Kind of relationship", disabled: p.type === "moderates" || null }, ...[["influences", "Influences"], ["associated", "Is associated with"], ["moderates", "Moderates"]].map(([k, l]) => el("option", { value: k, selected: k === p.type || null, disabled: (k === "moderates") !== (p.type === "moderates") || null }, l)));
-    typeSel.addEventListener("change", () => { p.type = typeSel.value; });
-    const signSel = el("select", { "aria-label": "Direction of the effect" }, ...[["+", "Positively"], ["-", "Negatively"], ["", "Direction open"]].map(([k, l]) => el("option", { value: k, selected: k === p.sign || null }, l)));
-    signSel.addEventListener("change", () => { p.sign = signSel.value; });
-    return el("div", { class: "panel" }, el("h3", {}, `${conceptLabel(p.from)} → ${/^E/.test(p.to) ? "an arrow" : conceptLabel(p.to)}`),
-      el("div", { class: "mini" }, typeSel, signSel, claimSelect("", (v) => { p.claim = v; })),
-      el("div", { class: "mini" }, el("button", { class: "btn primary", type: "button", onclick: async () => { S.fw.pending = null; try { await act("map", { action: "framework", op: "add_edge", from: p.from, to: p.to, type: p.type, sign: p.sign, claim: p.claim }); } catch { render(); } } }, "Add relationship"),
+    const rerender = (ch) => { if (ch.hypothesis !== undefined) ch = { label: ch.hypothesis }; Object.assign(p, ch); if (ch.type) render(); };
+    return el("div", { class: "panel" }, el("h3", {}, `New relationship: ${cap(rawLabel(p.from))} → ${/^E/.test(p.to) ? "an arrow" : rawLabel(p.to)}`),
+      relationControls(p, rerender), el("div", { class: "mini" }, claimSelect("", (v) => { p.claim = v; })),
+      el("div", { class: "mini" }, el("button", { class: "btn primary", type: "button", onclick: async () => { S.fw.pending = null; try { await fwAct("add_edge", { from: p.from, to: p.to, type: p.type, sign: p.sign, claim: p.claim, verb: p.verb, hypothesis: p.label }); } catch { render(); } } }, "Add relationship"),
         el("button", { class: "linkbtn", type: "button", onclick: () => { S.fw.pending = null; render(); } }, "Cancel")));
   }
-  function edgePanel(e) {
+  function edgePanel(e, F) {
     if (!e) return null; const m = MM(); const ev = edgeEvidence(e);
-    const signSel = el("select", { "aria-label": "Direction of the effect" }, ...[["+", "Positively"], ["-", "Negatively"], ["", "Direction open"]].map(([k, l]) => el("option", { value: k, selected: k === e.sign || null }, l)));
-    signSel.addEventListener("change", () => act("map", { action: "framework", op: "edit_edge", id: e.id, sign: signSel.value }).catch(() => {}));
     const s = e.claim ? support(e.claim) : null;
-    return el("div", { class: "panel" }, el("h3", {}, edgeSentence(e)),
+    const change = (ch) => fwAct("edit_edge", { id: e.id, ...ch }).catch(() => {});
+    const note = el("input", { type: "text", placeholder: "A note on this relationship", value: e.note || "", "aria-label": "Note" });
+    note.addEventListener("change", () => change({ note: note.value.trim() }));
+    return el("div", { class: "panel" }, el("h3", {}, edgeSentence(e, F)),
       el("div", { class: "missing" }, e.status === "proposed" ? "Suggested by Claude, not yet accepted." : EVTEXT[ev] + "."),
       e.claim && s ? el("div", {}, el("div", { class: "claim-t" }, meter(s), el("span", {}, cap(m.claims[e.claim]?.text))), ...[...s.supports.map((h) => evidence(h, "supports")), ...s.opposes.map((h) => evidence(h, "opposes"))]) : null,
-      canWrite() ? el("div", { class: "mini" }, e.type === "moderates" ? null : signSel, claimSelect(e.claim, (v) => act("map", { action: "framework", op: "edit_edge", id: e.id, claim: v }).catch(() => {})),
-        e.status === "proposed" ? el("button", { class: "btn small", type: "button", onclick: () => act("map", { action: "framework", op: "edit_edge", id: e.id, status: "accepted" }).catch(() => {}) }, "Accept") : null,
-        el("button", { class: "linkbtn", type: "button", style: "color:var(--bad)", onclick: () => { S.fw.sel = null; act("map", { action: "framework", op: "remove_edge", id: e.id }).catch(() => {}); } }, "Remove")) : null);
+      canWrite() ? [relationControls({ ...e }, change), el("div", { class: "mini" }, claimSelect(e.claim, (v) => change({ claim: v })), note),
+        el("div", { class: "mini" }, e.status === "proposed" ? [el("button", { class: "btn small primary", type: "button", onclick: () => change({ status: "accepted" }) }, "Accept"), el("button", { class: "btn small", type: "button", onclick: () => { S.fw.sel = null; change({ status: "rejected" }); } }, "Reject")] : null,
+          el("button", { class: "linkbtn", type: "button", style: "color:var(--bad)", onclick: () => { S.fw.sel = null; fwAct("remove_edge", { id: e.id }).catch(() => {}); } }, "Remove"))] : null);
   }
   function nodePanel(h) {
+    if (/^X/.test(h)) {
+      const x = MM().components?.[h] || { label: h };
+      return el("div", { class: "panel" }, el("h3", {}, cap(x.label)), el("div", { class: "missing" }, "A component: a module, a dataset or a step, not a concept."),
+        editable({ key: "edit:comp:" + h, label: "Name", value: x.label, rows: 1, onSave: (v) => fwAct("rename_node", { id: h, label: v }) }),
+        editable({ key: "edit:compnote:" + h, label: "What it does", value: x.note, rows: 2, empty: "Nothing written yet.", onSave: (v) => fwAct("rename_node", { id: h, note: v }) }),
+        canWrite() ? el("div", { class: "mini" }, el("button", { class: "linkbtn", type: "button", style: "color:var(--bad);margin-left:auto", onclick: () => { S.fw.sel = null; fwAct("remove_node", { id: h }).catch(() => {}); } }, "Remove from this framework")) : null);
+    }
     const c = MM().concepts[h];
-    return el("div", { class: "panel" }, el("h3", {}, cap(c.label)), el("p", { style: "margin:0" }, c.use ? cap(c.use) : el("span", { class: "missing" }, "No working definition yet.")),
-      canWrite() ? el("div", { class: "mini" }, el("button", { class: "linkbtn", type: "button", onclick: () => { S.tab = "concepts"; S.ctab = "register"; S.open.add("c:" + h); store.set("ctab", "register"); render(); } }, "Open in the register"),
-        el("button", { class: "linkbtn", type: "button", style: "color:var(--bad);margin-left:auto", onclick: () => { S.fw.sel = null; act("map", { action: "framework", op: "remove_node", id: h }).catch(() => {}); } }, "Remove from the framework")) : null);
+    return el("div", { class: "panel" }, el("h3", {}, cap(c.label)),
+      editableField(h, "label", "Name", c.label, ""), editableField(h, "use", "Working definition", c.use, "No working definition yet."),
+      canWrite() ? el("div", { class: "mini" }, el("button", { class: "linkbtn", type: "button", onclick: () => { S.ctab = "register"; S.open.add("c:" + h); store.set("ctab", "register"); render(); } }, "Open in the register"),
+        el("button", { class: "linkbtn", type: "button", style: "color:var(--bad);margin-left:auto", onclick: () => { S.fw.sel = null; fwAct("remove_node", { id: h }).catch(() => {}); } }, "Remove from this framework")) : null);
   }
+  function addPanel() {
+    const m = MM(); const F = activeFw(); const p = S.fw.adding;
+    const listId = "fw-concepts";
+    const inp = el("input", { type: "text", list: listId, placeholder: "An existing concept, or a new name", "aria-label": "Concept to add" });
+    const dl = el("datalist", { id: listId }, ...Object.entries(m.concepts).filter(([h, c]) => !F.nodes[h] && c.status !== "dropped").map(([, c]) => el("option", { value: cap(c.label) })));
+    const isPipe = F.kind === "pipeline";
+    const comp = el("input", { type: "checkbox", id: "fwcomp", checked: isPipe || null });
+    const go = () => { const v = inp.value.trim(); if (!v) return; S.fw.adding = null;
+      const hit = !comp.checked && Object.entries(m.concepts).find(([, c]) => c.label.toLowerCase() === v.toLowerCase());
+      fwAct("add_node", hit ? { id: hit[0], x: p.x, y: p.y } : { label: v, x: p.x, y: p.y, component: comp.checked }).catch(() => {}); };
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); if (e.key === "Escape") { S.fw.adding = null; render(); } });
+    setTimeout(() => inp.focus(), 0);
+    return el("div", { class: "panel" }, el("h3", {}, isPipe ? "Add a box here" : "Add a concept here"), el("div", { class: "mini" }, inp, dl, el("button", { class: "btn primary", type: "button", onclick: go }, "Add"), el("button", { class: "linkbtn", type: "button", onclick: () => { S.fw.adding = null; render(); } }, "Cancel")),
+      el("label", { class: "missing", style: "display:inline-flex;gap:6px;align-items:center" }, comp, "A component (a module, dataset or step), not a concept"),
+      el("p", { class: "missing" }, "A new concept name becomes a candidate in the register."));
+  }
+  function compareList(v, F) {
+    const key = (e) => `${e.from}|${e.type}|${e.to}`;
+    const a = new Map(v.edges.map((e) => [key(e), e])), b = new Map(F.edges.filter((e) => e.status === "accepted").map((e) => [key(e), e]));
+    const rows = [...[...b.keys()].filter((k) => !a.has(k)).map((k) => ["Added", edgeSentence(b.get(k), F)]), ...[...a.keys()].filter((k) => !b.has(k)).map((k) => ["Removed", edgeSentence(a.get(k), { edges: v.edges })]),
+      ...[...b.keys()].filter((k) => a.has(k) && (a.get(k).sign !== b.get(k).sign || a.get(k).claim !== b.get(k).claim || a.get(k).label !== b.get(k).label)).map((k) => ["Changed", edgeSentence(b.get(k), F)])];
+    const nA = Object.keys(v.nodes), nB = Object.keys(F.nodes);
+    for (const c of nB.filter((x) => !nA.includes(x))) rows.push(["Added", `The concept ${rawLabel(c)}.`]);
+    for (const c of nA.filter((x) => !nB.includes(x))) rows.push(["Removed", `The concept ${rawLabel(c)}.`]);
+    return el("div", { class: "panel" }, el("h3", {}, `Changes since ${v.v}`), ...(rows.length ? rows.map(([k, t]) => el("div", { class: "ev", "data-rel": k === "Added" ? "supports" : k === "Removed" ? "opposes" : "qualifies" }, `${k}: ${t}`)) : [el("p", { class: "missing" }, "No differences.")]));
+  }
+  document.addEventListener("keydown", (e) => {
+    if (S.tab !== "concepts" || S.ctab !== "framework" || typing() || !canWrite() || S.fw.view) return;
+    if (e.key === "Escape") { S.fw.sel = null; S.fw.pending = null; S.fw.adding = null; render(); }
+    if ((e.key === "Delete" || e.key === "Backspace") && S.fw.sel) { e.preventDefault(); const id = S.fw.sel; S.fw.sel = null; fwAct(/^E/.test(id) ? "remove_edge" : "remove_node", { id }).catch(() => {}); }
+  });
+
+  // ----- Ontology -----
   function viewOntology() {
-    const m = MM();
+    const m = MM(); const out = [];
     const cs = Object.entries(m.concepts).filter(([, c]) => ["adopted", "candidate"].includes(c.status));
-    if (!cs.length) return el("p", { class: "empty" }, "No adopted or candidate concepts yet.");
+    if (canWrite()) {
+      const inp = el("input", { type: "text", placeholder: "Add a concept at the top level…", "aria-label": "New top-level concept" });
+      const add = () => { const v = inp.value.trim(); if (v) act("map", { action: "concept", label: v }).catch(() => {}); };
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+      out.push(el("div", { class: "fwbar" }, el("span", { class: "mini", style: "flex:1" }, inp, el("button", { class: "btn", type: "button", onclick: add }, "Add")),
+        el("button", { class: "btn", type: "button", title: "Writes research-ontology.ttl (SKOS) and research-ontology.md into the project folder", onclick: async () => { try { banner(cap(await call("map", { action: "ontology", op: "export" }))); } catch (e) { banner(errText(e), true); } } }, "Export")));
+    }
+    if (!cs.length) { out.push(el("p", { class: "empty" }, "No adopted or candidate concepts yet.")); return out; }
     const parentOf = {}; for (const l of m.links) if (["broader", "partof"].includes(l.rel) && m.concepts[l.from]) parentOf[l.from] = l;
-    const kids = {}; for (const [h] of cs) { const p = parentOf[h]?.to; (kids[p && m.concepts[p] ? p : "_root"] ||= []).push(h); }
+    const kids = {}; for (const [h] of cs) { const p = parentOf[h]?.to; (kids[p && m.concepts[p] && cs.some(([k]) => k === p) ? p : "_root"] ||= []).push(h); }
     const rows = [];
     const walk = (h, depth) => { rows.push([h, depth]); for (const k of (kids[h] || []).sort((a, b) => conceptLabel(a).localeCompare(conceptLabel(b)))) walk(k, depth + 1); };
     for (const r of (kids._root || []).sort((a, b) => conceptLabel(a).localeCompare(conceptLabel(b)))) walk(r, 0);
-    return el("div", { class: "onto" }, ...rows.map(([h, depth]) => {
+    out.push(el("div", { class: "onto" }, ...rows.map(([h, depth]) => {
       const c = m.concepts[h]; const key = "o:" + h; const open = isOpen(key); const pl = parentOf[h];
-      const row = el("div", { class: "orow", style: `padding-left:${depth * 22}px` },
+      const related = m.links.filter((l) => l.rel === "related" && (l.from === h || l.to === h)).map((l) => l.from === h ? l.to : l.from).filter((x) => m.concepts[x]);
+      const nkids = (kids[h] || []).length;
+      const row = el("div", { class: "orow", style: `padding-left:${depth * 24}px` },
         el("button", { class: "ohead", type: "button", "aria-expanded": String(open), onclick: () => flip(key) }, chev(open), el("span", { class: "olabel" }, cap(c.label)),
           pl ? el("span", { class: "orel" }, `${pl.rel === "partof" ? "Part of" : "A kind of"} ${rawLabel(pl.to)}`) : null,
-          c.status === "candidate" ? el("span", { class: "orel" }, "· Candidate") : null));
+          nkids ? el("span", { class: "orel" }, `· ${nkids} narrower`) : null, c.status === "candidate" ? el("span", { class: "orel" }, "· Candidate") : null));
       if (open) {
-        const body = el("div", { class: "obody" }, el("p", { style: "margin:0" }, c.use ? cap(c.use) : el("span", { class: "missing" }, "No working definition yet.")));
+        const body = el("div", { class: "obody" }, editableField(h, "label", "Name", c.label, ""), editableField(h, "use", "Working definition", c.use, "No working definition yet."));
+        if (c.alt?.length) body.append(el("div", { class: "field" }, el("h4", {}, "Also called"), el("p", {}, c.alt.map(cap).join(", "))));
         if (canWrite()) {
           const others = cs.filter(([k]) => k !== h);
           const relSel = el("select", { "aria-label": "Kind of placement" }, el("option", { value: "broader", selected: pl?.rel !== "partof" || null }, "A kind of"), el("option", { value: "partof", selected: pl?.rel === "partof" || null }, "Part of"));
           const parSel = el("select", { "aria-label": "Place under" }, el("option", { value: "" }, "Nothing (top level)"), ...others.map(([k, o]) => el("option", { value: k, selected: pl?.to === k || null }, cap(o.label))));
-          const apply = () => act("map", { action: "concept", id: h, parent: parSel.value, parent_rel: relSel.value }).catch(() => {});
+          const pk = "place:" + h;
+          const apply = () => { S.open.delete(pk); act("map", { action: "concept", id: h, parent: parSel.value, parent_rel: relSel.value }).catch(() => {}); };
           relSel.addEventListener("change", () => { if (parSel.value) apply(); }); parSel.addEventListener("change", apply);
-          body.append(el("div", { class: "mini" }, el("span", { class: "missing" }, "Place as"), relSel, parSel));
-        }
+          const sentence = pl ? `${pl.rel === "partof" ? "Part of" : "A kind of"} ${cap(rawLabel(pl.to))}` : "At the top level";
+          body.append(isOpen(pk) ? el("div", { class: "mini" }, relSel, parSel, el("button", { class: "linkbtn", type: "button", onclick: () => flip(pk) }, "Done"))
+            : el("div", { class: "field" }, el("h4", {}, "Placed"), el("p", {}, el("button", { class: "place", type: "button", title: "Change where it sits", onclick: () => flip(pk) }, sentence))));
+          const relAdd = el("select", { "aria-label": "Add a related concept" }, el("option", { value: "" }, "Add a related concept…"), ...others.filter(([k]) => !related.includes(k)).map(([k, o]) => el("option", { value: k }, cap(o.label))));
+          relAdd.addEventListener("change", () => { if (relAdd.value) act("map", { action: "concept", id: h, related: [relAdd.value] }).catch(() => {}); });
+          body.append(el("div", { class: "mini" }, el("span", { class: "missing" }, "Related to"), ...related.map((r) => el("span", { class: "chip" }, cap(rawLabel(r)), " ", el("button", { class: "linkbtn", type: "button", "aria-label": `Remove ${rawLabel(r)}`, onclick: () => act("map", { action: "concept", id: h, unrelated: [r] }).catch(() => {}) }, "×"))), relAdd));
+          const kid = el("input", { type: "text", placeholder: `A narrower concept under ${c.label}…`, "aria-label": "New narrower concept" });
+          const addKid = () => { const v = kid.value.trim(); if (v) act("map", { action: "concept", label: v }).then(() => { const k = Object.entries(MM().concepts).find(([, x]) => x.label.toLowerCase() === v.toLowerCase()); if (k) return act("map", { action: "concept", id: k[0], parent: h, parent_rel: "broader" }); }).catch(() => {}); };
+          kid.addEventListener("keydown", (e) => { if (e.key === "Enter") addKid(); });
+          body.append(el("div", { class: "mini" }, kid, el("button", { class: "btn", type: "button", onclick: addKid }, "Add")));
+        } else if (related.length) body.append(el("div", { class: "field" }, el("h4", {}, "Related to"), el("p", {}, related.map((r) => cap(rawLabel(r))).join(", "))));
         row.append(body);
       }
       return row;
-    }));
+    })));
+    // Ontology versions
+    const ok = "onto:versions"; const vs = m.ontologyVersions || [];
+    out.push(el("details", { class: "plain", open: isOpen(ok) || null, ontoggle: keepOpen(ok) }, el("summary", {}, `Versions of the ontology (${vs.length})`),
+      el("div", { style: "display:grid;gap:8px;padding-top:4px" },
+        canWrite() ? (() => { const inp = el("input", { type: "text", placeholder: "What changed, in a few words", "aria-label": "Version note" }); return el("div", { class: "mini" }, inp, el("button", { class: "btn", type: "button", onclick: () => act("map", { action: "ontology", op: "save", note: inp.value.trim() }).catch(() => {}) }, "Save this version")); })() : null,
+        S.outputs._onto ? el("pre", { class: "out" }, S.outputs._onto) : null,
+        ...[...vs].reverse().map((v) => el("div", { class: "vrow" }, el("span", {}, el("b", {}, v.v), ` ${fmtDate(v.date)}${v.note ? ": " + cap(v.note) : ""}`, el("span", { class: "missing" }, ` · ${plural(v.links.length, "relation")}`)),
+          el("span", { class: "mini" }, el("button", { class: "linkbtn", type: "button", onclick: async () => { try { S.outputs._onto = cap(await call("map", { action: "ontology", op: "compare", id: v.v })); } catch (e) { S.outputs._onto = errText(e); } S.open.add(ok); render(); } }, "Compare"),
+            canWrite() ? el("button", { class: "linkbtn", type: "button", onclick: () => { if (confirm(`Restore the ontology relations of ${v.v}? Save the current state first if you want to keep it.`)) act("map", { action: "ontology", op: "restore", id: v.v, confirmed: true }).catch(() => {}); } }, "Restore") : null))))));
+    return out;
   }
 
   // ----- Papers -----
@@ -854,6 +1146,7 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
       el("input", { type: "search", id: "q", placeholder: d.active ? "Search your Zotero and Semantic Scholar" : "Work in this project to search", disabled: !d.active || null, autocomplete: "off" }),
       el("button", { class: "btn", type: "submit", disabled: !d.active || null }, "Search")));
     if (S.outputs._search) out.push(el("div", { class: "notice" }, S.outputs._search));
+    if (d.active && d.library) out.push(shelf());
     const c = { unsorted: 0, kept: 0, maybe: 0, dropped: 0, all: d.papers.length };
     for (const p of d.papers) c[p.status || "unsorted"]++;
     out.push(el("div", { class: "filters" }, ...[["unsorted", "To screen"], ["kept", "Kept"], ["maybe", "Maybe"], ["dropped", "Dropped"], ["all", "All"]].map(([k, l]) =>
@@ -868,6 +1161,31 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
         S.outputs._bib ? el("pre", { class: "out" }, S.outputs._bib) : null,
         ...[...d.queries].sort((a, b) => Number(b.id.slice(1)) - Number(a.id.slice(1))).map((q) => el("div", { class: "meta" }, el("span", {}, cap(q.label)), el("span", {}, plural(q.handles.length, "paper")))))));
     return out;
+  }
+  const FOLDER = '<svg viewBox="0 0 30 26" aria-hidden="true"><path d="M2 5.5A2.5 2.5 0 0 1 4.5 3h6.2l2.6 3H25.5A2.5 2.5 0 0 1 28 8.5v13A2.5 2.5 0 0 1 25.5 24h-21A2.5 2.5 0 0 1 2 21.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M2 10h26" stroke="currentColor" stroke-width="1.4"/></svg>';
+  const prettyPath = (p) => String(p || "").replace(/^\/Users\/[^/]+/, "~").replace(/^\/home\/[^/]+/, "~");
+  async function openFolder() { try { const res = await fetch(`/api/open-folder?t=${TOKEN}`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }); if (!res.ok) throw new Error(); banner("Opened the papers folder in Finder."); } catch { banner("The folder could not be opened from here. Its path is shown above.", true); } }
+  function shelf() {
+    const L = S.data.library; const kept = S.data.papers.filter((p) => p.status === "kept");
+    const saved = kept.filter((p) => L.papers[p.h]?.pdf);
+    const icon = el("span"); icon.innerHTML = FOLDER;
+    const sync = async () => { S.outputs._shelf = "Copying from Zotero and looking for open copies…"; S.open.add("shelf"); render(); try { S.outputs._shelf = cap(await call("session", { action: "papers", op: "sync" })); } catch (e) { S.outputs._shelf = errText(e); } await load({ quiet: true }); };
+    const FROM = { zotero: "From Zotero", open: "Open copy", you: "Added by you" };
+    const open = isOpen("shelf");
+    return el("section", { class: "shelf", "aria-label": "Saved papers" },
+      el("div", { class: "shelf-head" }, icon,
+        el("div", {}, el("div", { class: "shelf-title" }, "Saved papers"), el("button", { class: "shelf-path", type: "button", title: "Open in Finder", onclick: openFolder }, prettyPath(L.dir))),
+        el("div", { class: "mini" }, el("span", { class: "missing" }, `${saved.length} of ${kept.length} kept`), el("button", { class: "btn small", type: "button", onclick: sync, disabled: !kept.length || null }, saved.length < kept.length ? "Fetch missing" : "Check again"))),
+      kept.length ? el("div", { class: "shelf-bar", role: "img", "aria-label": `${saved.length} of ${kept.length} kept papers saved` }, el("i", { style: `width:${Math.round(100 * saved.length / kept.length)}%` })) : el("p", { class: "missing" }, "Keep papers below and they are saved here as PDFs, so Claude can read them in full."),
+      S.outputs._shelf ? el("pre", { class: "out" }, S.outputs._shelf) : null,
+      kept.length ? el("details", { class: "plain", open: open || null, ontoggle: keepOpen("shelf") }, el("summary", {}, "Tracker"),
+        el("div", { class: "shelf-list" }, ...[...kept].sort((a, b) => !!L.papers[a.h]?.pdf - !!L.papers[b.h]?.pdf || Number(a.h.slice(1)) - Number(b.h.slice(1))).map((p) => {
+          const x = L.papers[p.h] || {};
+          return el("div", { class: "shelf-row" }, el("span", { class: "st" + (x.pdf ? "" : " missing"), title: x.pdf ? "Saved" : "Missing" }),
+            x.pdf ? el("a", { href: `/pdf?t=${TOKEN}&f=${encodeURIComponent(x.pdf)}`, target: "_blank", rel: "noopener" }, p.title) : el("span", {}, p.title),
+            el("span", { class: "src" }, x.pdf ? FROM[x.from] || "Saved" : p.ids.doi ? el("a", { href: PROXY + encodeURIComponent(`https://doi.org/${p.ids.doi}`), target: "_blank", rel: "noopener" }, "Library access") : "Missing"));
+        }), L.extra?.length ? el("p", { class: "missing", style: "padding-top:6px" }, `Also in the folder: ${plural(L.extra.length, "file")} not matched to a kept paper.`) : null,
+        el("p", { class: "hint", style: "padding-top:6px" }, "Missing ones: download through your library and drop the PDF in the folder. Any file name works; it is matched by title."))) : null);
   }
   function isPreprint(p) { return !!p.ids.arxiv && !p.ids.doi && (!p.venue || /arxiv|corr|preprint/i.test(p.venue)); }
   function paperItem(p) {
@@ -929,13 +1247,21 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
     const ts = Object.entries(m.tasks || {});
     const lanes = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
     const today = new Date().toISOString().slice(0, 10);
+    if (canWrite() && ts.length) out.push(el("p", { class: "hint", style: "margin:-10px 0 14px" }, "Drag a card to another column to move it. Open a card to edit it."));
+    const moveTask = (id, st) => { const t = m.tasks[id]; if (!t || t.status === st) return; const prev = t.status; t.status = st; render(); act("map", { action: "task", id, status: st }).catch(() => { t.status = prev; render(); }); };
     out.push(el("div", { class: "board" }, ...lanes.map(([st, label]) => {
       let items = ts.filter(([, t]) => t.status === st);
       items.sort((a, b) => st === "done" ? String(b[1].done).localeCompare(String(a[1].done)) : (a[1].due || "9999").localeCompare(b[1].due || "9999") || Number(b[0].slice(1)) - Number(a[0].slice(1)));
       const all = isOpen("lane:" + st); const shown = st === "done" && !all ? items.slice(0, 5) : items;
-      return el("section", { class: "lane " + st }, el("h3", {}, label, el("span", {}, items.length)),
+      const lane = el("section", { class: "lane " + st, "data-lane": st }, el("h3", {}, label, el("span", {}, items.length)),
         ...(items.length ? shown.map(([k, t]) => taskCard(k, t, today)) : [el("p", { class: "missing", style: "border-top:1px solid var(--rule);padding-top:10px" }, st === "doing" ? "Nothing in progress." : st === "todo" ? "Nothing waiting." : "Nothing finished yet.")]),
         st === "done" && items.length > 5 ? el("button", { class: "linkbtn", type: "button", onclick: () => flip("lane:done") }, all ? "Show fewer" : `Show all ${items.length}`) : null);
+      if (canWrite()) {
+        lane.addEventListener("dragover", (e) => { if (!S.dragTask) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; lane.classList.add("over"); });
+        lane.addEventListener("dragleave", (e) => { if (!lane.contains(e.relatedTarget)) lane.classList.remove("over"); });
+        lane.addEventListener("drop", (e) => { e.preventDefault(); lane.classList.remove("over"); const id = e.dataTransfer.getData("text/plain") || S.dragTask; S.dragTask = null; if (id) moveTask(id, st); });
+      }
+      return lane;
     })));
     return out;
   }
@@ -943,17 +1269,29 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
     const m = MM(); const key = "t:" + k; const open = isOpen(key);
     const q = t.kind === "question" && t.about ? m.questions[t.about] : null;
     const overdue = t.due && t.status !== "done" && t.due < today;
-    const next = { todo: [["doing", "Start"], ["done", "Done"]], doing: [["done", "Done"], ["todo", "Back to to do"]], done: [["todo", "Reopen"]] }[t.status];
-    const card = el("div", { class: "tcard" },
+    const card = el("div", { class: "tcard", draggable: canWrite() ? "true" : null, "data-task": k },
       el("div", { class: "tk " + t.kind }, TKIND[t.kind] || "Task"),
       el("button", { class: "tt", type: "button", "aria-expanded": String(open), onclick: () => flip(key) }, cap(t.title)),
       el("div", { class: "tm" }, el("span", {}, TSRC[t.source] || "From " + t.source), t.due ? el("span", { class: overdue ? "overdue" : "" }, (overdue ? "Overdue: " : "Due ") + fmtDate(t.due)) : null,
-        q?.verdict ? el("span", { class: "verdict " + q.verdict }, q.verdict) : null, t.status === "done" && t.done ? el("span", {}, "Done " + fmtDate(t.done)) : null),
-      canWrite() ? el("div", { class: "acts" }, ...next.map(([s, l]) => el("button", { class: "linkbtn", type: "button", onclick: () => act("map", { action: "task", id: k, status: s }).catch(() => {}) }, l))) : null);
+        q?.verdict ? el("span", { class: "verdict " + q.verdict }, q.verdict) : null, t.status === "done" && t.done ? el("span", {}, "Done " + fmtDate(t.done)) : null));
+    if (canWrite()) {
+      card.addEventListener("dragstart", (e) => { S.dragTask = k; e.dataTransfer.setData("text/plain", k); e.dataTransfer.effectAllowed = "move"; card.classList.add("dragging"); });
+      card.addEventListener("dragend", () => { S.dragTask = null; card.classList.remove("dragging"); document.querySelectorAll(".lane.over").forEach((x) => x.classList.remove("over")); });
+    }
     if (open) {
       const body = el("div", { class: "tbody" });
+      if (canWrite() && isOpen("edit:task:" + k)) body.append(editable({ key: "edit:task:" + k, value: t.title, rows: 2, onSave: (v) => act("map", { action: "task", id: k, text: v }) }));
       if (t.about && !q) body.append(el("div", { class: "missing" }, "About " + labelOf(t.about)));
-      if (t.note) body.append(el("p", { style: "margin:0" }, cap(t.note)));
+      if (t.note && !canWrite()) body.append(el("div", { class: "prose" }, ...t.note.split("\n").filter(Boolean).map((x) => el("p", { style: "margin:0 0 4px" }, x))));
+      if (canWrite()) {
+        const kindSel = el("select", { "aria-label": "Kind of task" }, ...Object.entries(TKIND).map(([kk, l]) => el("option", { value: kk, selected: kk === t.kind || null }, l)));
+        kindSel.addEventListener("change", () => act("map", { action: "task", id: k, kind: kindSel.value }).catch(() => {}));
+        const due = el("input", { type: "date", value: t.due || "", "aria-label": "Due date" });
+        due.addEventListener("change", () => act("map", { action: "task", id: k, due: due.value || "" }).catch(() => {}));
+        const where = el("select", { "aria-label": "Move to" }, ...[["todo", "To do"], ["doing", "In progress"], ["done", "Done"]].map(([kk, l]) => el("option", { value: kk, selected: kk === t.status || null }, l)));
+        where.addEventListener("change", () => act("map", { action: "task", id: k, status: where.value }).catch(() => {}));
+        body.append(el("div", { class: "mini" }, kindSel, due, where, isOpen("edit:task:" + k) ? null : el("button", { class: "linkbtn", type: "button", onclick: () => flip("edit:task:" + k) }, "Rename")));
+      }
       if (q) {
         const pos = m.links.filter((l) => l.rel === "answers" && l.to === t.about).map((l) => l.from);
         if (q.coverage) body.append(el("div", { class: "missing" }, cap(q.coverage)));
@@ -961,7 +1299,7 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
         if (!pos.length) body.append(el("p", { class: "missing" }, "No positions recorded yet."));
       }
       if (canWrite()) {
-        const ta = el("textarea", { rows: "2", placeholder: "Notes on this task…", style: "width:100%;background:var(--leaf);border:1px solid var(--rule);border-radius:8px;padding:7px 9px;font:14px/1.4 var(--sans)" }); ta.value = t.note || "";
+        const ta = el("textarea", { rows: "2", placeholder: "Notes on this task…", class: "edit-area", style: "font:14px/1.45 var(--sans)" }); ta.value = t.note || ""; grow(ta);
         ta.addEventListener("blur", () => { if (ta.value.trim() !== (t.note || "")) act("map", { action: "task", id: k, note: ta.value.trim() }).catch(() => {}); });
         body.append(ta);
       }
@@ -972,7 +1310,7 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
 
   // ---------- global actions ----------
   async function switchTo(name) { try { await call("session", { action: "start", name }); S.pendingSwitch = null; S.viewing = slug(name); await load(); } catch (e) { banner(errText(e), true); } }
-  $("#project").addEventListener("change", (e) => { S.viewing = e.target.value; S.pendingSwitch = null; S.fw = { sel: null, connect: false, from: null, pending: null }; load(); });
+  $("#project").addEventListener("change", (e) => { S.viewing = e.target.value; S.pendingSwitch = null; S.fw = { sel: null, pending: null, view: null, compare: null, adding: null, renaming: false, creating: false, linking: false }; load(); });
   $("#refresh").addEventListener("click", () => load());
   $("#live").addEventListener("click", () => { S.live = !S.live; $("#live").classList.toggle("on", S.live); $("#live").setAttribute("aria-pressed", String(S.live)); schedule(); if (S.live) load({ quiet: true }); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden && S.live) load({ quiet: true }); });

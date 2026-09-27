@@ -14,8 +14,21 @@ const arr = (x) => (x === undefined || x === null || x === "" ? [] : Array.isArr
 export const CONCEPT_STATUS = ["candidate", "adopted", "parked", "dropped"];
 export const CONCEPT_ROLE = ["core", "lens", "context", ""];
 export const VERDICTS = ["answered", "partly", "open", "contested", ""];
-export const TRIGGERS = ["paper", "card", "supervision", "own", "data", "question"];
-const FRAME = ["conversation", "opportunity", "what", "how", "why", "boundaries", "originality", "utility", "method"];
+export const TRIGGERS = ["paper", "card", "supervision", "own", "data", "question", "edit"];
+const FRAME = ["framing", "method", "conversation", "opportunity", "what", "how", "why", "boundaries", "originality", "utility"];
+// Earlier maps held the framing as eight short fields; it is now prose. The old fields stay readable.
+const LEGACY = ["conversation", "opportunity", "what", "how", "why", "boundaries", "originality", "utility"];
+const PROSE = new Set(["framing", "method"]);
+const para = (s) => String(s ?? "").replace(/\r/g, "").split(/\n\s*\n/).map(oneLine).filter(Boolean).join("\n\n").slice(0, 6000);
+const GAP = { confusion: "The gap is one of competing explanations.", neglect: "The gap is an overlooked area.", application: "The opportunity is to extend existing work to a new setting.", problematization: "The opportunity is to challenge an assumption the field takes for granted." };
+export function framingText(v) {
+  if (!v) return "";
+  if (v.framing) return v.framing;
+  const sent = (x) => { x = cap(oneLine(x)); return x && !/[.!?]$/.test(x) ? x + "." : x; };
+  const a = ["conversation", "opportunity", "what", "how", "why"].map((k) => k === "opportunity" ? GAP[v[k]] || sent(v[k]) : sent(v[k])).filter(Boolean).join(" ");
+  const b = ["boundaries", "originality", "utility"].map((k) => sent(v[k])).filter(Boolean).join(" ");
+  return [a, b].filter(Boolean).join("\n\n");
+}
 const OPPORTUNITY = ["confusion", "neglect", "application", "problematization", ""];
 
 // rel -> allowed [from kinds, to kinds]
@@ -37,6 +50,7 @@ export function kindOf(h) {
   if (/^N\d+$/i.test(h)) return "note";
   if (/^T\d+$/i.test(h)) return "task";
   if (/^E\d+$/i.test(h)) return "edge";
+  if (/^X\d+$/i.test(h)) return "component";
   return "";
 }
 const normH = (h) => { h = oneLine(h); return /^v\d/i.test(h) ? h.toLowerCase() : h.toUpperCase(); };
@@ -71,7 +85,11 @@ export class ResearchMap {
     this.m = m || blank(project || st.name);
     this.m.notes ||= {}; this.m.next.N ||= 1;
     this.m.tasks ||= {}; this.m.next.T ||= 1;
-    this.m.framework ||= { nodes: {}, edges: [], versions: [] }; this.m.next.E ||= 1; this.m.next.F ||= 1;
+    this.m.next.E ||= 1; this.m.next.F ||= 1; this.m.next.FW ||= 1; this.m.next.O ||= 1;
+    if (!this.m.frameworks) { this.m.frameworks = [{ id: `FW${this.m.next.FW++}`, name: "Main framework", nodes: {}, edges: [], versions: [], ...(this.m.framework || {}) }]; delete this.m.framework; }
+    this.m.fwActive ||= this.m.frameworks[0].id;
+    this.m.ontologyVersions ||= [];
+    this.m.components ||= {}; this.m.next.X ||= 1;
     // Questions recorded before tasks existed get their task, so they show on the board.
     for (const [q, x] of Object.entries(this.m.questions)) if (!Object.values(this.m.tasks).some((t) => t.about === q))
       this.m.tasks[`T${this.m.next.T++}`] = { title: x.text, kind: "question", source: "claude", about: q, status: x.verdict ? "done" : "todo", due: "", note: "", created: x.created || today(), done: x.verdict ? x.updated || x.created || "" : "" };
@@ -112,7 +130,8 @@ export class ResearchMap {
     if (k === "version") return m.versions.some((v) => v.v === h);
     if (k === "note") return !!m.notes[h];
     if (k === "task") return !!m.tasks[h];
-    if (k === "edge") return m.framework.edges.some((e) => e.id === h);
+    if (k === "edge") return this.allEdges().some((e) => e.id === h);
+    if (k === "component") return !!m.components[h];
     return false;
   }
   conceptId(ref, { create = false } = {}) {
@@ -125,6 +144,20 @@ export class ResearchMap {
     const h = `C${this.m.next.C++}`;
     this.m.concepts[h] = { label: r, alt: [], attributes: [], scope: "", use: "", useHistory: [], status: "candidate", role: "", note: "", created: today() };
     return h;
+  }
+  nodeLabel(h) { return this.m.concepts[h]?.label || this.m.components?.[h]?.label || h; }
+  // A framework box is a concept (C3) or, in pipelines and models, a component (X2) that is not a concept:
+  // a module, a dataset, a step. Labels resolve to an existing concept first, then to a component.
+  nodeId(ref, F, { create = false, component = false } = {}) {
+    const r = oneLine(ref); if (!r) throw new Error("which box? give an id (C3, X2) or a label");
+    if (/^X\d+$/i.test(r)) { const h = r.toUpperCase(); if (!this.m.components[h]) throw new Error(`unknown component ${h}`); return h; }
+    if (/^C\d+$/i.test(r)) return this.conceptId(r);
+    const low = r.toLowerCase();
+    if (!component) for (const [h, c] of Object.entries(this.m.concepts)) if (c.label.toLowerCase() === low || (c.alt || []).some((x) => x.toLowerCase() === low)) return h;
+    for (const [h, c] of Object.entries(this.m.components)) if (c.label.toLowerCase() === low) return h;
+    if (!create) throw new Error(`no concept or component "${r}"`);
+    if (component || F?.kind === "pipeline") { const h = `X${this.m.next.X++}`; this.m.components[h] = { label: r, note: "", created: today() }; return h; }
+    return this.conceptId(r, { create: true });
   }
   current() { return this.m.versions.find((v) => v.status === "current") || null; }
   linksOf(pred) { return this.m.links.filter(pred); }
@@ -171,9 +204,9 @@ export class ResearchMap {
   }
   versionText(v) {
     const lines = [`${v.v} (${v.status}, ${v.date}${v.of ? `, revises ${v.of}` : ""}): ${v.statement}`];
-    for (const f of FRAME) if (v[f]) lines.push(`  ${f}: ${v[f]}`);
-    const empty = FRAME.filter((f) => !v[f]);
-    if (empty.length) lines.push(`  (empty: ${empty.join(", ")})`);
+    const fr = framingText(v);
+    lines.push(fr ? `  framing: ${fr.replace(/\n\n/g, " / ")}` : "  framing: (empty)");
+    lines.push(v.method ? `  method: ${v.method.replace(/\n\n/g, " / ")}` : "  method: (empty)");
     for (const k of v.claims || []) {
       const c = this.m.claims[k]; if (!c) continue;
       const s = this.claimSupport(k);
@@ -217,6 +250,7 @@ export class ResearchMap {
       const c = m.concepts[h];
       if (a.id && a.label) c.label = oneLine(a.label);
       if (a.alt !== undefined) c.alt = [...new Set([...(c.alt || []), ...arr(a.alt)])];
+      if (a.alt_set !== undefined) c.alt = [...new Set(arr(a.alt_set))];
       if (a.attributes !== undefined) c.attributes = arr(a.attributes);
       if (a.scope !== undefined) c.scope = oneLine(a.scope);
       if (a.note !== undefined) c.note = oneLine(a.note);
@@ -224,6 +258,7 @@ export class ResearchMap {
       if (a.role !== undefined) { if (!CONCEPT_ROLE.includes(a.role)) throw new Error("role must be core, lens or context"); c.role = a.role; }
       if (a.use !== undefined && oneLine(a.use) !== c.use) { if (c.use) c.useHistory.push({ text: c.use, until: today() }); c.use = oneLine(a.use); }
       for (const rel of ["related", "broader", "sameas", "partof"]) for (const t of arr(a[rel])) this.addLink(h, rel, this.conceptId(t, { create: true }));
+      for (const t of arr(a.unrelated)) { const o = this.conceptId(t); m.links = m.links.filter((l) => !(l.rel === "related" && ((l.from === h && l.to === o) || (l.from === o && l.to === h)))); }
       if (a.parent !== undefined) {
         // Place the concept in the working ontology: one parent, as a kind of it (broader) or a part of it.
         m.links = m.links.filter((l) => !(l.from === h && ["broader", "partof"].includes(l.rel)));
@@ -305,6 +340,7 @@ export class ResearchMap {
       }
       const x = m.tasks[t];
       if (a.id && (a.text || a.title)) x.title = oneLine(a.text || a.title);
+      if (a.id && a.kind !== undefined && KINDS.includes(a.kind)) x.kind = a.kind;
       if (a.status !== undefined) { if (!ST.includes(a.status)) throw new Error("task status: todo, doing or done"); x.status = a.status; x.done = a.status === "done" ? today() : ""; }
       if (a.due !== undefined) { if (a.due && !/^\d{4}-\d{2}-\d{2}$/.test(a.due)) throw new Error("due as YYYY-MM-DD"); x.due = a.due; }
       if (a.note !== undefined) x.note = String(a.note).trim().slice(0, 2000);
@@ -318,6 +354,7 @@ export class ResearchMap {
       return ts.map(([k, t]) => `${k} [${t.status}] ${t.kind}: ${t.title}${t.about ? ` (${t.about})` : ""}${t.due ? ` due ${t.due}` : ""} from ${t.source}`).join("\n");
     }
     if (action === "framework") return this.frameworkOp(a);
+    if (action === "ontology") return this.ontologyOp(a);
     if (action === "definitions") {
       const c = a.id || a.label ? this.conceptId(a.id || a.label) : null;
       const ds = Object.entries(m.definitions).filter(([, d]) => !c || d.concept === c).sort((x, y) => (x[1].year || 9999) - (y[1].year || 9999));
@@ -416,7 +453,9 @@ export class ResearchMap {
       if (a.branch_of) { const root = base.v.match(/^v\d+/)[0]; const used = m.versions.filter((v) => v.v.startsWith(root) && v.v !== root).length; id = root + "abcdefghijklmnopqrstuvwxyz"[used]; }
       else id = `v${main + 1}`;
       const v = { v: id, date: today(), of: base?.v || "", status: a.branch_of ? "branch" : "current", statement: oneLine(a.statement || base?.statement) };
-      for (const f of FRAME) v[f] = a[f] !== undefined ? oneLine(a[f]) : base?.[f] || "";
+      for (const f of FRAME) v[f] = a[f] !== undefined ? (PROSE.has(f) ? para(a[f]) : oneLine(a[f])) : base?.[f] || "";
+      // New prose framing replaces the old structured fields.
+      if (a.framing !== undefined) for (const f of LEGACY) if (a[f] === undefined) v[f] = "";
       if (v.opportunity && !OPPORTUNITY.includes(v.opportunity)) throw new Error(`opportunity: ${OPPORTUNITY.filter(Boolean).join(", ")}`);
       v.claims = a.claims !== undefined ? arr(a.claims).map((x) => x.toUpperCase()) : [...(base?.claims || [])];
       v.concepts = a.concepts !== undefined ? arr(a.concepts).map((x) => this.conceptId(x)) : [...(base?.concepts || [])];
@@ -424,8 +463,9 @@ export class ResearchMap {
       v.trigger = { type: a.trigger, ref: oneLine(a.trigger_ref), note: oneLine(a.trigger_note) };
       if (v.trigger.ref) for (const r of v.trigger.ref.split(/[\s,]+/)) if (kindOf(r) && !this.exists(normH(r))) throw new Error(`trigger_ref ${r} is not known`);
       v.change = oneLine(a.change || "First version.");
-      if (m.framework.versions.length) v.framework = m.framework.versions.at(-1).v;
+      const fwNow = this.fw(); if (fwNow.versions.length) v.framework = `${fwNow.versions.at(-1).v} (${fwNow.name})`;
       v.rationale = oneLine(a.rationale);
+      if (a.desk) v.desk = true;
       if (base) v.diff = FRAME.concat(["statement"]).filter((f) => (v[f] || "") !== (base[f] || ""))
         .concat(v.claims.filter((k) => !base.claims?.includes(k)).map((k) => `+${k}`), (base.claims || []).filter((k) => !v.claims.includes(k)).map((k) => `-${k}`),
           v.concepts.filter((k) => !base.concepts?.includes(k)).map((k) => `+${k}`), (base.concepts || []).filter((k) => !v.concepts.includes(k)).map((k) => `-${k}`));
@@ -435,6 +475,36 @@ export class ResearchMap {
       this.save();
       return `Wrote ${id}${base ? ` (from ${base.v}; changed: ${v.diff.join(", ") || "nothing but the record"})` : ""}.`;
     }
+    if (action === "edit") {
+      // The user's own edits from the Research Desk. Each day's edits share one version, so small
+      // corrections do not flood the history; anything older is kept as it was.
+      const fields = ["statement", "framing", "method"].filter((f) => a[f] !== undefined);
+      if (!fields.length && a.claims === undefined) throw new Error("edit needs statement, framing, method or claims");
+      const cur = this.current();
+      if (!cur && !oneLine(a.statement)) throw new Error("write the idea itself first");
+      if (cur && cur.desk && cur.date === today()) {
+        const base = m.versions.find((x) => x.v === cur.of);
+        for (const f of fields) cur[f] = f === "statement" ? oneLine(a[f]) || cur.statement : para(a[f]);
+        if (a.framing !== undefined) for (const f of LEGACY) cur[f] = "";
+        if (a.claims !== undefined) { cur.claims = arr(a.claims).map((x) => x.toUpperCase()); for (const k of cur.claims) if (!m.claims[k]) throw new Error(`unknown claim ${k}`); }
+        if (base) {
+          cur.diff = FRAME.concat(["statement"]).filter((f) => (cur[f] || "") !== (base[f] || "")).concat(cur.claims.filter((k) => !base.claims?.includes(k)).map((k) => `+${k}`), (base.claims || []).filter((k) => !cur.claims.includes(k)).map((k) => `-${k}`));
+          const names = { statement: "the idea", framing: "the framing", method: "the methodology" };
+          const touched = [...new Set(cur.diff.map((d) => names[d] || (/^[+-]K/.test(d) ? "the argument" : null)).filter(Boolean))];
+          cur.change = `Edited ${touched.length ? touched.join(", ").replace(/, ([^,]*)$/, " and $1") : "the record"} on the Research Desk.`;
+        }
+        this.save(); return `Updated ${cur.v} (today's edits).`;
+      }
+      const names = { statement: "the idea", framing: "the framing", method: "the methodology" };
+      const touched = [...fields.map((f) => names[f]), ...(a.claims !== undefined ? ["the argument"] : [])];
+      return this.tool({ action: "revise", trigger: "edit", desk: true, change: `Edited ${touched.join(", ").replace(/, ([^,]*)$/, " and $1")} on the Research Desk.`, ...Object.fromEntries(fields.map((f) => [f, a[f]])), ...(a.claims !== undefined ? { claims: a.claims } : {}) });
+    }
+    if (action === "undefine") {
+      const d = String(a.id || "").toUpperCase();
+      if (!m.definitions[d]) throw new Error(`unknown definition ${d}`);
+      delete m.definitions[d]; this.save(); return `Removed ${d}.`;
+    }
+    if (action === "focus") return this.focus(a);
     if (action === "version") {
       const v = m.versions.find((x) => x.v === String(a.id || "").toLowerCase());
       if (!v) throw new Error(`unknown version ${a.id}`);
@@ -454,74 +524,211 @@ export class ResearchMap {
     throw new Error(`unknown action ${action}`);
   }
 
+  // One item and its immediate neighbourhood, so Claude can work on part of a large map without
+  // reading all of it: the concept, claim or question, what links to it, and the evidence one step away.
+  focus(a) {
+    const m = this.m, ref = oneLine(a.id || a.label);
+    if (!ref) throw new Error("focus needs id (C3, K2, RQ1, X1) or a concept label");
+    const k = kindOf(ref) || "concept";
+    const ev = (h) => { const c = kindOf(h) === "card" ? this.card(h) : null; return `${h} ${c ? clip(c.c, 140) : ""} [${this.paperLabel(h.split("#")[0])}]`; };
+    const claimBlock = (kk) => { const c = m.claims[kk]; if (!c) return []; const s = this.claimSupport(kk);
+      return [`${kk} ${c.text} [${c.status}; +${s.supports.length} -${s.opposes.length} ~${s.qualifies.length}]`, ...s.supports.slice(0, 3).map((h) => `  for: ${ev(h)}`), ...s.opposes.slice(0, 3).map((h) => `  against: ${ev(h)}`), ...s.qualifies.slice(0, 2).map((h) => `  qualifies: ${ev(h)}`)]; };
+    const edgesOf = (h) => m.frameworks.flatMap((F) => F.edges.filter((e) => e.status !== "rejected" && (e.from === h || e.to === h || e.claim === h)).map((e) => `${F.id} ${this.edgeLine(e, F)}`));
+    const out = [];
+    if (k === "concept" || k === "component") {
+      const h = k === "component" ? normH(ref) : this.conceptId(ref);
+      if (k === "component") { const x = m.components?.[h]; if (!x) throw new Error(`unknown component ${h}`); out.push(`${h} ${x.label} (component)${x.note ? ": " + x.note : ""}`); }
+      else {
+        const c = m.concepts[h]; out.push(this.conceptLine(h));
+        if (c.use) out.push(`Working definition: ${c.use}`);
+        const defs = Object.entries(m.definitions).filter(([, d]) => d.concept === h);
+        if (defs.length) out.push(`Definitions: ${defs.map(([dh, d]) => `${dh} ${d.year || "n.d."} ${d.h}`).join("; ")} (map action=definitions id=${h} for the quotes)`);
+        const up = m.links.filter((l) => l.from === h && ["broader", "partof"].includes(l.rel)).map((l) => `${l.rel === "partof" ? "part of" : "a kind of"} ${l.to} ${m.concepts[l.to]?.label}`);
+        const down = m.links.filter((l) => l.to === h && ["broader", "partof"].includes(l.rel)).map((l) => `${l.from} ${m.concepts[l.from]?.label}`);
+        if (up.length || down.length) out.push(`Ontology: ${[...up, down.length ? `narrower: ${down.join(", ")}` : ""].filter(Boolean).join("; ")}`);
+        for (const l of m.links.filter((l) => l.rel === "uses" && l.to === h)) out.push(...claimBlock(l.from));
+      }
+      out.push(...edgesOf(h));
+      for (const [nk, n] of Object.entries(m.notes)) if (n.about === h && n.status === "open") out.push(`${nk} note: ${n.text}`);
+      for (const [tk, t] of Object.entries(m.tasks)) if (t.about === h && t.status !== "done") out.push(`${tk} task [${t.status}]: ${t.title}`);
+    } else if (k === "claim") {
+      const h = normH(ref); if (!m.claims[h]) throw new Error(`unknown claim ${h}`);
+      out.push(...claimBlock(h));
+      const uses = m.links.filter((l) => l.from === h && l.rel === "uses").map((l) => `${l.to} ${m.concepts[l.to]?.label}`);
+      if (uses.length) out.push(`Uses: ${uses.join(", ")}`);
+      const ans = m.links.filter((l) => l.from === h && l.rel === "answers").map((l) => `${l.to} ${m.questions[l.to]?.text}`);
+      if (ans.length) out.push(`Answers: ${ans.join("; ")}`);
+      out.push(...edgesOf(h));
+    } else if (k === "question") {
+      const h = normH(ref), q = m.questions[h]; if (!q) throw new Error(`unknown question ${h}`);
+      out.push(`${h} ${q.text} [${q.verdict || "no verdict"}]${q.coverage ? ` (${q.coverage})` : ""}`);
+      for (const l of m.links.filter((l) => l.rel === "answers" && l.to === h)) out.push(...claimBlock(l.from));
+      const inf = m.links.filter((l) => l.rel === "informs" && l.to === h).map((l) => ev(l.from));
+      if (inf.length) out.push(`Informs: ${inf.slice(0, 6).join("; ")}`);
+    } else throw new Error("focus works on concepts, components, claims and questions");
+    return out.join("\n");
+  }
   ontologyAncestors(c, seen = []) {
     const up = this.m.links.filter((l) => l.from === c && ["broader", "partof"].includes(l.rel)).map((l) => l.to);
     for (const u of up) if (!seen.includes(u)) { seen.push(u); this.ontologyAncestors(u, seen); }
     return seen;
   }
-  // ---------- framework (the conceptual framework figure) ----------
+  // ---------- frameworks (conceptual framework figures) ----------
+  // A project can hold several frameworks (a main model, an alternative account, one per study).
+  // Each has its own concepts, relationships and saved versions.
+  fw(id) {
+    const m = this.m;
+    const want = String(id || m.fwActive || "").toUpperCase();
+    const f = m.frameworks.find((x) => x.id === want) || m.frameworks.find((x) => x.id === m.fwActive) || m.frameworks[0];
+    if (id && f.id !== want) throw new Error(`unknown framework ${id}; frameworks: ${m.frameworks.map((x) => `${x.id} ${x.name}`).join("; ")}`);
+    return f;
+  }
+  allEdges() { return this.m.frameworks.flatMap((f) => f.edges); }
   edgeEvidence(e) {
     if (!e.claim || !this.m.claims[e.claim]) return "none";
     const s = this.claimSupport(e.claim);
     return s.opposes.length ? "contested" : s.supports.length ? "supported" : "unsupported";
   }
-  placeNode(c) {
-    const F = this.m.framework;
+  placeNode(F, c, x, y, near, dir = 1) {
     if (F.nodes[c]) return;
+    if (Number.isFinite(x) && Number.isFinite(y)) { F.nodes[c] = { x: Math.round(x), y: Math.round(y) }; return; }
+    if (near) {
+      const ok = (x, y) => x >= 79 && x <= 821 && y >= 40 && Object.values(F.nodes).every((n) => Math.abs(n.x - x) > 190 || Math.abs(n.y - y) > 100);
+      for (const [dx, dy] of [[240, 0], [240, 130], [240, -130], [0, 150], [0, -150], [-240, 0], [240, 260], [-240, 130], [0, 300]]) {
+        const px = near.x + dx * dir, py = near.y + dy; if (ok(px, py)) { F.nodes[c] = { x: Math.round(px), y: Math.round(py) }; return; }
+      }
+    }
     // Free slot on a roomy grid (canvas 900 wide), so arrows between neighbours stay visible.
     const free = (x, y) => Object.values(F.nodes).every((n) => Math.abs(n.x - x) > 200 || Math.abs(n.y - y) > 110);
     for (let i = 0; i < 300; i++) { const x = 130 + (i % 3) * 320, y = 70 + Math.floor(i / 3) * 150; if (free(x, y)) { F.nodes[c] = { x, y }; return; } }
     F.nodes[c] = { x: 130, y: 70 };
   }
-  edgeLine(e) {
-    const m = this.m, lab = (h) => kindOf(h) === "edge" ? `edge ${h}` : `${h} ${m.concepts[h]?.label || "?"}`;
+  edgeLine(e, F) {
+    const lab = (h) => kindOf(h) === "edge" ? `edge ${h}` : `${h} ${this.nodeLabel(h)}`;
     const ev = this.edgeEvidence(e);
-    return `${e.id} ${lab(e.from)} ${e.type}${e.sign ? `(${e.sign})` : ""} ${lab(e.to)} [${e.status}${e.claim ? `, ${e.claim} ${ev}` : ", no claim"}]${e.note ? ` ${e.note}` : ""}`;
+    const verb = e.type === "custom" ? `"${e.verb}"` : e.type;
+    return `${e.id}${e.label ? ` [${e.label}]` : ""} ${lab(e.from)} ${verb}${e.sign ? `(${e.sign})` : ""} ${lab(e.to)} [${e.status}${e.claim ? `, ${e.claim} ${ev}` : ", no claim"}]${e.note ? ` ${e.note}` : ""}`;
+  }
+  // Layered layout: sources on the left, outcomes on the right, moderators above their arrow.
+  arrange(F) {
+    const nodes = Object.keys(F.nodes); if (!nodes.length) return;
+    const flow = F.edges.filter((e) => e.status !== "rejected" && kindOf(e.to) !== "edge" && F.nodes[e.from] && F.nodes[e.to] && e.type !== "associated");
+    const layer = Object.fromEntries(nodes.map((n) => [n, 0]));
+    for (let i = 0; i < nodes.length; i++) for (const e of flow) if (layer[e.to] < layer[e.from] + 1 && layer[e.from] + 1 < nodes.length) layer[e.to] = layer[e.from] + 1;
+    const mods = new Set(F.edges.filter((e) => e.type === "moderates" && e.status !== "rejected").map((e) => e.from));
+    const cols = Math.max(...Object.values(layer)) + 1;
+    const x = (l) => cols === 1 ? 450 : Math.round(110 + l * (680 / (cols - 1)));
+    const byLayer = {};
+    for (const n of nodes) if (!mods.has(n) || flow.some((e) => e.from === n || e.to === n)) (byLayer[layer[n]] ||= []).push(n);
+    const top = mods.size ? 170 : 70;
+    // Pipelines read top to bottom, one step per row, so long chains stay legible on the page.
+    if (F.kind === "pipeline") {
+      for (const [l, ns] of Object.entries(byLayer)) ns.forEach((n, i) => { F.nodes[n] = { x: Math.round(450 + (i - (ns.length - 1) / 2) * 230), y: 60 + Number(l) * 115 }; });
+      for (const n of nodes) if (!F.nodes[n] || !Object.values(byLayer).flat().includes(n)) F.nodes[n] ||= { x: 750, y: 60 };
+      return;
+    }
+    // Stagger alternate columns only when an arrow skips a column, so it is not drawn through the boxes between.
+    const skips = flow.some((e) => kindOf(e.to) !== "edge" && Math.abs(layer[e.to] - layer[e.from]) > 1);
+    for (const [l, ns] of Object.entries(byLayer)) ns.forEach((n, i) => { F.nodes[n] = { x: x(Number(l)), y: top + i * 130 + (skips && Number(l) % 2 ? 65 : 0) }; });
+    let k = 0;
+    for (const n of nodes) if (mods.has(n) && !Object.values(byLayer).flat().includes(n)) {
+      const e = F.edges.find((x) => x.from === n && x.type === "moderates"); const t = F.edges.find((x) => x.id === e?.to);
+      const mx = t && F.nodes[t.from] && F.nodes[t.to] ? (F.nodes[t.from].x + F.nodes[t.to].x) / 2 : 450;
+      F.nodes[n] = { x: Math.round(Math.max(79, Math.min(821, mx + k * 20))), y: 50 }; k++;
+    }
   }
   frameworkOp(a) {
-    const m = this.m, F = m.framework, op = a.op || "show";
+    const m = this.m, op = a.op || "show";
     const by = a.by === "you" ? "you" : "claude";
-    const TYPES = ["influences", "moderates", "associated"];
-    const edge = (id) => { const e = F.edges.find((x) => x.id === String(id || "").toUpperCase()); if (!e) throw new Error(`unknown edge ${id}`); return e; };
+    const TYPES = ["influences", "moderates", "associated", "enables", "constrains", "precedes", "partof", "feeds", "produces", "custom"];
+    const F = op === "create" ? null : this.fw(a.fw);
+    const edge = (id) => { const e = F.edges.find((x) => x.id === String(id || "").toUpperCase()); if (!e) throw new Error(`unknown edge ${id} in ${F.id}`); return e; };
+    const version = (id) => { const v = F.versions.find((x) => x.v === String(id || "").toUpperCase()); if (!v) throw new Error(`unknown version ${id} of ${F.id}`); return v; };
+    const snap = () => ({ nodes: JSON.parse(JSON.stringify(F.nodes)), edges: JSON.parse(JSON.stringify(F.edges.filter((e) => e.status === "accepted"))) });
+    if (op === "list") return m.frameworks.map((f) => `${f.id}${f.id === m.fwActive ? " (active)" : ""} ${f.name}: ${Object.keys(f.nodes).length} concepts, ${f.edges.filter((e) => e.status === "accepted").length} relationships, ${f.versions.length} versions`).join("\n");
+    if (op === "create") {
+      const id = `FW${m.next.FW++}`;
+      let base = { nodes: {}, edges: [] };
+      if (a.from_version) { const src = m.frameworks.find((f) => f.versions.some((v) => v.v === String(a.from_version).toUpperCase())); if (!src) throw new Error(`unknown version ${a.from_version}`); base = src.versions.find((v) => v.v === String(a.from_version).toUpperCase()); }
+      else if (a.copy) { const src = this.fw(a.copy); base = { nodes: src.nodes, edges: src.edges.filter((e) => e.status !== "rejected") }; }
+      const edges = JSON.parse(JSON.stringify(base.edges)); const remap = {};
+      for (const e of edges) { remap[e.id] = `E${m.next.E++}`; e.id = remap[e.id]; }
+      for (const e of edges) if (remap[e.to]) e.to = remap[e.to];
+      m.frameworks.push({ id, name: oneLine(a.name) || `Framework ${id.slice(2)}`, kind: a.kind === "pipeline" ? "pipeline" : "conceptual", nodes: JSON.parse(JSON.stringify(base.nodes)), edges, versions: [], created: today() });
+      m.fwActive = id; this.save(); return `Created ${id} "${m.frameworks.at(-1).name}".`;
+    }
+    if (op === "rename") {
+      if (!oneLine(a.name) && !a.kind) throw new Error("rename needs name (or kind: conceptual or pipeline)");
+      if (oneLine(a.name)) F.name = oneLine(a.name);
+      if (a.kind) F.kind = a.kind === "pipeline" ? "pipeline" : "conceptual";
+      this.save(); return `${F.id} is now "${F.name}" (${F.kind || "conceptual"}).`;
+    }
+    if (op === "rename_node") {
+      const h = this.nodeId(a.id, F);
+      if (kindOf(h) === "concept") { if (!oneLine(a.label)) throw new Error("rename_node needs label"); m.concepts[h].label = oneLine(a.label); }
+      else { if (a.label !== undefined && oneLine(a.label)) m.components[h].label = oneLine(a.label); if (a.note !== undefined) m.components[h].note = oneLine(a.note); }
+      this.save(); return `${h} is "${this.nodeLabel(h)}".`;
+    }
+    if (op === "activate") { m.fwActive = F.id; this.save(); return `${F.id} "${F.name}" is the active framework.`; }
+    if (op === "delete") {
+      if (m.frameworks.length < 2) throw new Error("a project keeps at least one framework");
+      m.frameworks = m.frameworks.filter((f) => f !== F); if (m.fwActive === F.id) m.fwActive = m.frameworks[0].id;
+      this.save(); return `Deleted ${F.id} "${F.name}".`;
+    }
     if (op === "show") {
       const nodes = Object.keys(F.nodes);
-      if (!nodes.length) return "The framework is empty. Add concepts with op=add_node or relationships with op=add_edge.";
+      const head = `${F.id} "${F.name}"${m.frameworks.length > 1 ? ` (${m.frameworks.length} frameworks: op=list)` : ""}`;
+      if (!nodes.length) return `${head} is empty. Add concepts with op=add_node or relationships with op=add_edge.`;
       const live = F.edges.filter((e) => e.status !== "rejected");
-      return [`Framework: ${nodes.map((c) => `${c} ${m.concepts[c]?.label}`).join("; ")}.`, ...live.map((e) => this.edgeLine(e)),
+      return [`${head}${F.kind === "pipeline" ? " (pipeline)" : ""}: ${nodes.map((c) => `${c} ${this.nodeLabel(c)}`).join("; ")}.`, ...live.map((e) => this.edgeLine(e)),
         F.versions.length ? `Versions: ${F.versions.map((v) => `${v.v} ${v.date}${v.note ? " " + v.note : ""}`).join("; ")}` : "No saved versions."].join("\n");
     }
-    if (op === "add_node") { for (const c of arr(a.id || a.from)) this.placeNode(this.conceptId(c)); this.save(); return `In the framework: ${Object.keys(F.nodes).join(" ")}.`; }
+    if (op === "add_node") {
+      const ids = arr(a.id || a.from), labels = arr(a.label);
+      for (const c of ids) this.placeNode(F, this.nodeId(c, F), Number(a.x), Number(a.y));
+      for (const l of labels) this.placeNode(F, this.nodeId(l, F, { create: true, component: !!a.component }), Number(a.x), Number(a.y));
+      this.save(); return `In ${F.id}: ${Object.keys(F.nodes).join(" ")}.`;
+    }
     if (op === "remove_node") {
-      const c = this.conceptId(a.id); delete F.nodes[c];
+      const c = this.nodeId(a.id, F); delete F.nodes[c];
       const gone = new Set(F.edges.filter((e) => e.from === c || e.to === c).map((e) => e.id));
       F.edges = F.edges.filter((e) => !gone.has(e.id) && !gone.has(e.to));
-      this.save(); return `Removed ${c} and ${gone.size} relationship${gone.size === 1 ? "" : "s"}.`;
+      this.save(); return `Removed ${c} and ${gone.size} relationship${gone.size === 1 ? "" : "s"} from ${F.id}.`;
     }
     if (op === "move") {
-      const c = this.conceptId(a.id); if (!F.nodes[c]) throw new Error(`${c} is not in the framework`);
-      F.nodes[c] = { x: Math.max(79, Math.min(821, Math.round(Number(a.x) || 0))), y: Math.max(30, Math.min(2000, Math.round(Number(a.y) || 0))) };
-      this.save(); return `Moved ${c}.`;
+      const moves = Array.isArray(a.positions) ? a.positions : [{ id: a.id, x: a.x, y: a.y }];
+      for (const p of moves) { const c = this.nodeId(p.id, F); if (!F.nodes[c]) throw new Error(`${c} is not in ${F.id}`); F.nodes[c] = { x: Math.max(79, Math.min(821, Math.round(Number(p.x) || 0))), y: Math.max(30, Math.min(2400, Math.round(Number(p.y) || 0))) }; }
+      this.save(); return `Moved ${moves.length}.`;
     }
+    if (op === "arrange") { this.arrange(F); this.save(); return `Arranged ${F.id}.`; }
     if (op === "add_edge") {
-      const type = TYPES.includes(a.type) ? a.type : "influences";
-      const from = this.conceptId(arr(a.from)[0]);
-      const toRaw = normH(arr(a.to)[0] || "");
+      const type = TYPES.includes(a.type) ? a.type : F.kind === "pipeline" ? "feeds" : "influences";
+      const from = this.nodeId(arr(a.from)[0], F, { create: F.kind === "pipeline" });
+      const t0 = arr(a.to)[0] || ""; const toRaw = kindOf(t0) ? normH(t0) : t0;
       let to;
-      if (type === "moderates") { if (kindOf(toRaw) !== "edge") throw new Error("moderates points at a relationship (E3), not a concept"); to = edge(toRaw).id; }
-      else to = this.conceptId(toRaw);
+      if (type === "moderates" && kindOf(toRaw) === "edge") to = edge(toRaw).id;
+      else if (type === "moderates") throw new Error("moderates points at a relationship (E3), not a concept");
+      else to = this.nodeId(toRaw, F, { create: F.kind === "pipeline" });
       if (from === to) throw new Error("a concept cannot relate to itself");
       if (F.edges.some((e) => e.from === from && e.to === to && e.type === type && e.status !== "rejected")) return "That relationship is already in the framework.";
       const claim = a.claim ? String(a.claim).toUpperCase() : "";
       if (claim && !m.claims[claim]) throw new Error(`unknown claim ${claim}`);
-      this.placeNode(from); if (kindOf(to) === "concept") this.placeNode(to);
-      const e = { id: `E${m.next.E++}`, from, to, type, sign: ["+", "-"].includes(a.sign) ? a.sign : "", claim, note: oneLine(a.note), status: by === "you" ? "accepted" : "proposed", by, at: today() };
+      if (type === "custom" && !oneLine(a.verb)) throw new Error("a custom relationship needs verb (for example: shapes)");
+      // New boxes go next to the box they connect to; nothing already placed moves.
+      if (!F.nodes[from] && F.nodes[to]) this.placeNode(F, from, NaN, NaN, F.nodes[to], -1); else this.placeNode(F, from);
+      if (kindOf(to) !== "edge") this.placeNode(F, to, NaN, NaN, F.nodes[from], 1);
+      const e = { id: `E${m.next.E++}`, from, to, type, verb: type === "custom" ? oneLine(a.verb) : "", sign: ["+", "-"].includes(a.sign) && ["influences", "moderates"].includes(type) ? a.sign : "", label: oneLine(a.hypothesis).slice(0, 12), claim, note: oneLine(a.note), status: by === "you" ? "accepted" : "proposed", by, at: today() };
       F.edges.push(e); this.save();
       return `${e.status === "proposed" ? "Proposed" : "Added"} ${this.edgeLine(e)}`;
     }
     if (op === "edit_edge") {
       const e = edge(a.id);
-      if (a.type !== undefined && TYPES.includes(a.type)) e.type = a.type;
+      if (a.type !== undefined && TYPES.includes(a.type) && (a.type === "moderates") === (e.type === "moderates")) e.type = a.type;
+      if (a.verb !== undefined) e.verb = oneLine(a.verb);
+      if (e.type === "custom" && !e.verb) throw new Error("a custom relationship needs verb");
       if (a.sign !== undefined) e.sign = ["+", "-"].includes(a.sign) ? a.sign : "";
+      if (!["influences", "moderates"].includes(e.type)) e.sign = "";
+      if (a.hypothesis !== undefined) e.label = oneLine(a.hypothesis).slice(0, 12);
       if (a.claim !== undefined) { const k = String(a.claim || "").toUpperCase(); if (k && !m.claims[k]) throw new Error(`unknown claim ${k}`); e.claim = k; }
       if (a.note !== undefined) e.note = oneLine(a.note);
       if (a.status !== undefined) { if (!["accepted", "rejected", "proposed"].includes(a.status)) throw new Error("status: accepted or rejected"); e.status = a.status; }
@@ -529,52 +736,144 @@ export class ResearchMap {
     }
     if (op === "remove_edge") { const e = edge(a.id); F.edges = F.edges.filter((x) => x.id !== e.id && x.to !== e.id); this.save(); return `Removed ${e.id}.`; }
     if (op === "save") {
-      const v = { v: `F${m.next.F++}`, date: today(), note: oneLine(a.note), nodes: JSON.parse(JSON.stringify(F.nodes)), edges: JSON.parse(JSON.stringify(F.edges.filter((e) => e.status === "accepted"))) };
-      F.versions.push(v); this.save(); return `Saved framework ${v.v}.`;
+      const v = { v: `F${m.next.F++}`, date: today(), note: oneLine(a.note), ...snap() };
+      F.versions.push(v); this.save(); return `Saved ${F.id} as ${v.v}.`;
     }
     if (op === "restore") {
-      const v = F.versions.find((x) => x.v === String(a.id || "").toUpperCase()); if (!v) throw new Error(`unknown framework version ${a.id}`);
+      const v = version(a.id);
       F.nodes = JSON.parse(JSON.stringify(v.nodes)); F.edges = [...JSON.parse(JSON.stringify(v.edges)), ...F.edges.filter((e) => e.status === "rejected")];
-      this.save(); return `Restored ${v.v} as the working framework.`;
+      this.save(); return `Restored ${v.v} as the working state of ${F.id}.`;
+    }
+    if (op === "compare") {
+      const A = a.id ? version(a.id) : F.versions.at(-1); if (!A) return "No saved version to compare with.";
+      const B = a.with ? version(a.with) : { v: "working", ...snap() };
+      const key = (e) => `${e.from}|${e.type}|${e.to}`;
+      const ka = new Map(A.edges.map((e) => [key(e), e])), kb = new Map(B.edges.map((e) => [key(e), e]));
+      const added = [...kb.keys()].filter((k) => !ka.has(k)).map((k) => this.edgeLine(kb.get(k)));
+      const removed = [...ka.keys()].filter((k) => !kb.has(k)).map((k) => this.edgeLine(ka.get(k)));
+      const changed = [...kb.keys()].filter((k) => ka.has(k) && (ka.get(k).sign !== kb.get(k).sign || ka.get(k).claim !== kb.get(k).claim || ka.get(k).label !== kb.get(k).label)).map((k) => this.edgeLine(kb.get(k)));
+      const nA = new Set(Object.keys(A.nodes)), nB = new Set(Object.keys(B.nodes));
+      return [`${A.v} compared with ${B.v}:`, `Concepts added: ${[...nB].filter((c) => !nA.has(c)).join(" ") || "none"}; removed: ${[...nA].filter((c) => !nB.has(c)).join(" ") || "none"}.`,
+        ...added.map((l) => `+ ${l}`), ...removed.map((l) => `- ${l}`), ...changed.map((l) => `~ ${l}`)].join("\n");
     }
     if (op === "export") {
-      const file = this.file.replace(/research-map\.json$/, "research-framework.svg");
-      writeFileSync(file, this.frameworkSvg()); return `Wrote ${file}.`;
+      const file = this.file.replace(/research-map\.json$/, `research-framework${m.frameworks.length > 1 ? "-" + F.id.toLowerCase() : ""}.svg`);
+      writeFileSync(file, this.frameworkSvg(F)); return `Wrote ${file}.`;
     }
-    throw new Error("framework op: show, add_node, remove_node, move, add_edge, edit_edge, remove_edge, save, restore, export");
+    throw new Error("framework op: list, create, rename, rename_node, activate, delete, show, add_node, remove_node, move, arrange, add_edge, edit_edge, remove_edge, save, restore, compare, export");
   }
   // Plain black-and-white figure for papers.
-  frameworkSvg() {
-    const m = this.m, F = m.framework, W = 150, H = 48;
+  frameworkSvg(F = this.fw()) {
+    const m = this.m, W = 150;
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
     const nodes = Object.entries(F.nodes);
     if (!nodes.length) return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 60"><text x="10" y="30">Empty framework</text></svg>`;
+    const wrap = (s) => { const L = [""]; for (const w of cap(s).split(/\s+/)) { if ((L.at(-1) + " " + w).trim().length > 20 && L.at(-1)) L.push(w); else L[L.length - 1] = (L.at(-1) + " " + w).trim(); } return L.slice(0, 3); };
+    const hOf = (c) => 26 + wrap(this.nodeLabel(c)).length * 15;
     const xs = nodes.map(([, n]) => n.x), ys = nodes.map(([, n]) => n.y);
-    const x0 = Math.min(...xs) - W / 2 - 30, y0 = Math.min(...ys) - H / 2 - 30, x1 = Math.max(...xs) + W / 2 + 30, y1 = Math.max(...ys) + H / 2 + 30;
-    const clipBox = (cx, cy, tx, ty) => { const dx = tx - cx, dy = ty - cy; if (!dx && !dy) return [cx, cy]; const s = Math.min(Math.abs((W / 2 + 4) / (dx || 1e-9)), Math.abs((H / 2 + 4) / (dy || 1e-9))); return [cx + dx * s, cy + dy * s]; };
-    const mid = {};
+    const x0 = Math.min(...xs) - W / 2 - 30, y0 = Math.min(...ys) - 60, x1 = Math.max(...xs) + W / 2 + 30, y1 = Math.max(...ys) + 70;
+    const clipBox = (cx, cy, h, tx, ty) => { const dx = tx - cx, dy = ty - cy; if (!dx && !dy) return [cx, cy]; const s = Math.min(Math.abs((W / 2 + 4) / (dx || 1e-9)), Math.abs((h / 2 + 4) / (dy || 1e-9))); return [cx + dx * s, cy + dy * s]; };
+    const WORD = { enables: "enables", constrains: "constrains", precedes: "precedes", partof: "part of", feeds: "feeds", produces: "produces", associated: "" };
+    const mid = {}, lines = [], tags = [];
+    const tagText = (x, y, s) => `<text x="${x}" y="${y}" font-size="12" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(s)}</text>`;
+    const segHits = (x1, y1, x2, y2, skip) => { let n = 0; for (let i = 2; i < 18; i++) { const t = i / 20, x = x1 + (x2 - x1) * t, y = y1 + (y2 - y1) * t; for (const [c, p] of nodes) if (!skip.includes(c) && Math.abs(x - p.x) < W / 2 + 6 && Math.abs(y - p.y) < hOf(c) / 2 + 6) n++; } return n; };
+    const route = (sx, sy, tx, ty, skip, bend0, penalty) => {
+      const dx = tx - sx, dy = ty - sy, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+      const hits = (cx, cy) => { let n = 0; for (let i = 1; i < 20; i++) { const t = i / 20, u = 1 - t, x = u * u * sx + 2 * u * t * cx + t * t * tx, y = u * u * sy + 2 * u * t * cy + t * t * ty; for (const [c, p] of nodes) if (!skip.includes(c) && Math.abs(x - p.x) < W / 2 + 8 && Math.abs(y - p.y) < hOf(c) / 2 + 8) n++; } return n; };
+      let best = null;
+      for (const off of [bend0, 50, -50, 100, -100, 160, -160]) { const cx = (sx + tx) / 2 + nx * off, cy = (sy + ty) / 2 + ny * off, n = hits(cx, cy) + (penalty ? 3 * penalty(0.25 * sx + 0.5 * cx + 0.25 * tx, 0.25 * sy + 0.5 * cy + 0.25 * ty) : 0); if (!best || n < best.n) best = { n, cx, cy }; if (!n) break; }
+      const at = (t) => { const u = 1 - t; return [u * u * sx + 2 * u * t * best.cx + t * t * tx, u * u * sy + 2 * u * t * best.cy + t * t * ty]; };
+      return { d: `M${sx} ${sy}Q${best.cx} ${best.cy} ${tx} ${ty}`, mid: at(0.5), at };
+    };
     const live = F.edges.filter((e) => e.status === "accepted");
-    const lines = [];
+    const pair = (e) => live.some((x) => x !== e && x.from === e.to && x.to === e.from);
     for (const e of live.filter((e) => e.type !== "moderates")) {
       const a = F.nodes[e.from], b = F.nodes[e.to]; if (!a || !b) continue;
-      const [sx, sy] = clipBox(a.x, a.y, b.x, b.y), [tx, ty] = clipBox(b.x, b.y, a.x, a.y);
-      mid[e.id] = [(sx + tx) / 2, (sy + ty) / 2];
-      const dash = this.edgeEvidence(e) === "supported" ? "" : ` stroke-dasharray="6 4"`;
-      lines.push(`<line x1="${sx}" y1="${sy}" x2="${tx}" y2="${ty}" stroke="#000" stroke-width="1.4"${dash}${e.type === "influences" ? ' marker-end="url(#a)"' : ""}/>`);
-      if (e.sign) lines.push(`<text x="${mid[e.id][0] + 8}" y="${mid[e.id][1] - 6}" font-size="14">${e.sign === "-" ? "\u2212" : "+"}</text>`);
+      const [sx, sy] = clipBox(a.x, a.y, hOf(e.from), b.x, b.y), [tx, ty] = clipBox(b.x, b.y, hOf(e.to), a.x, a.y);
+      const mods = live.filter((x) => x.type === "moderates" && x.to === e.id && F.nodes[x.from]);
+      const penalty = mods.length ? (mx, my) => mods.reduce((n, x) => n + segHits(F.nodes[x.from].x, F.nodes[x.from].y, mx, my, [x.from]), 0) : null;
+      const r = route(sx, sy, tx, ty, [e.from, e.to], pair(e) ? 44 : 0, penalty); mid[e.id] = r.mid;
+      const dash = this.edgeEvidence(e) === "supported" || (F.kind === "pipeline" && !e.claim) ? "" : ` stroke-dasharray="6 4"`;
+      lines.push(`<path d="${r.d}" fill="none" stroke="#000" stroke-width="1.4"${dash}${e.type === "associated" ? "" : ' marker-end="url(#a)"'}/>`);
+      const tag = [e.label, e.sign === "-" ? "−" : e.sign, e.type === "custom" ? e.verb : WORD[e.type]].filter(Boolean).join(" ");
+      if (tag) { const [px, py] = mods.length ? r.at(0.3) : r.mid; tags.push(tagText(px, py - 7, tag).replace("<text ", '<text text-anchor="middle" ')); }
     }
     for (const e of live.filter((e) => e.type === "moderates")) {
       const a = F.nodes[e.from], t = mid[e.to]; if (!a || !t) continue;
-      const [sx, sy] = clipBox(a.x, a.y, t[0], t[1]);
+      const [sx, sy] = clipBox(a.x, a.y, hOf(e.from), t[0], t[1]);
       lines.push(`<line x1="${sx}" y1="${sy}" x2="${t[0]}" y2="${t[1]}" stroke="#000" stroke-width="1.4"${this.edgeEvidence(e) === "supported" ? "" : ' stroke-dasharray="6 4"'} marker-end="url(#a)"/>`);
+      const tag = [e.label, e.sign === "-" ? "−" : e.sign].filter(Boolean).join(" ");
+      tags.push(`<circle cx="${t[0]}" cy="${t[1]}" r="3.5" fill="#000"/>`);
+      if (tag) tags.push(tagText(t[0] + 8, t[1] - 8, tag));
     }
     const boxes = nodes.map(([c, n]) => {
-      const words = cap(m.concepts[c]?.label || c).split(/\s+/); const L = [""];
-      for (const w of words) { if ((L.at(-1) + " " + w).trim().length > 20 && L.at(-1)) L.push(w); else L[L.length - 1] = (L.at(-1) + " " + w).trim(); }
-      const t = L.slice(0, 2).map((l, i) => `<text x="${n.x}" y="${n.y + (L.length > 1 ? (i ? 12 : -3) : 5)}" text-anchor="middle" font-size="13">${esc(l)}</text>`).join("");
-      return `<rect x="${n.x - W / 2}" y="${n.y - H / 2}" width="${W}" height="${H}" fill="#fff" stroke="#000" stroke-width="1.4"/>${t}`;
+      const L = wrap(this.nodeLabel(c)), h = hOf(c);
+      const t = L.map((l, i) => `<text x="${n.x}" y="${n.y - (L.length - 1) * 7.5 + i * 15 + 5}" text-anchor="middle" font-size="13">${esc(l)}</text>`).join("");
+      return `<rect x="${n.x - W / 2}" y="${n.y - h / 2}" width="${W}" height="${h}" fill="#fff" stroke="#000" stroke-width="1.4"/>${t}`;
     });
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" font-family="Helvetica, Arial, sans-serif"><defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#000"/></marker></defs>${lines.join("")}${boxes.join("")}</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" font-family="Helvetica, Arial, sans-serif"><defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#000"/></marker></defs>${lines.join("")}${boxes.join("")}${tags.join("")}</svg>`;
+  }
+
+  // ---------- ontology ----------
+  ontologySnap() {
+    const m = this.m;
+    return { labels: Object.fromEntries(Object.entries(m.concepts).map(([h, c]) => [h, c.label])),
+      links: m.links.filter((l) => ["broader", "partof", "related", "sameas"].includes(l.rel)).map((l) => ({ from: l.from, rel: l.rel, to: l.to })) };
+  }
+  ontologyOp(a) {
+    const m = this.m, op = a.op || "show";
+    const version = (id) => { const v = m.ontologyVersions.find((x) => x.v === String(id || "").toUpperCase()); if (!v) throw new Error(`unknown ontology version ${id}`); return v; };
+    const REL = { broader: "a kind of", partof: "part of", related: "related to", sameas: "same as" };
+    if (op === "show") {
+      const s = this.ontologySnap();
+      if (!s.links.length) return "The ontology has no relations yet. Place concepts with map action=concept id=C4 parent=C1 parent_rel=broader|partof.";
+      return [...s.links.map((l) => `${l.from} ${s.labels[l.from]} is ${REL[l.rel]} ${l.to} ${s.labels[l.to]}`),
+        m.ontologyVersions.length ? `Versions: ${m.ontologyVersions.map((v) => `${v.v} ${v.date}${v.note ? " " + v.note : ""}`).join("; ")}` : "No saved versions."].join("\n");
+    }
+    if (op === "save") { const v = { v: `O${m.next.O++}`, date: today(), note: oneLine(a.note), ...this.ontologySnap() }; m.ontologyVersions.push(v); this.save(); return `Saved the ontology as ${v.v}.`; }
+    if (op === "restore") {
+      const v = version(a.id);
+      m.links = [...m.links.filter((l) => !["broader", "partof", "related", "sameas"].includes(l.rel)), ...v.links.filter((l) => m.concepts[l.from] && m.concepts[l.to]).map((l) => ({ ...l, note: "", at: today() }))];
+      this.save(); return `Restored ontology ${v.v}.`;
+    }
+    if (op === "compare") {
+      const A = a.id ? version(a.id) : m.ontologyVersions.at(-1); if (!A) return "No saved version to compare with.";
+      const B = a.with ? version(a.with) : { v: "working", ...this.ontologySnap() };
+      const k = (l) => `${l.from}|${l.rel}|${l.to}`, sa = new Set(A.links.map(k)), sb = new Set(B.links.map(k));
+      const say = (s) => { const [f, r, t] = s.split("|"); return `${B.labels[f] || A.labels[f] || f} is ${REL[r]} ${B.labels[t] || A.labels[t] || t}`; };
+      const renamed = Object.keys(B.labels).filter((c) => A.labels[c] && A.labels[c] !== B.labels[c]).map((c) => `~ ${A.labels[c]} renamed to ${B.labels[c]}`);
+      return [`${A.v} compared with ${B.v}:`, ...[...sb].filter((x) => !sa.has(x)).map((x) => `+ ${say(x)}`), ...[...sa].filter((x) => !sb.has(x)).map((x) => `- ${say(x)}`), ...renamed].join("\n");
+    }
+    if (op === "export") {
+      const base = this.file.replace(/research-map\.json$/, "");
+      const slug = String(m.project).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      const q = (s) => `"${String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"@en`;
+      const T = [`@prefix skos: <http://www.w3.org/2004/02/skos/core#> .`, `@prefix ps: <urn:paper-scout:${slug}#> .`, "", `ps:scheme a skos:ConceptScheme ; skos:prefLabel ${q(this.ctx.ledger.peek?.(m.project)?.title || m.project)} .`,
+        `ps:partOf a <http://www.w3.org/2002/07/owl#ObjectProperty> ; skos:definition ${q("The subject is a part of the object.")} .`, ""];
+      for (const [h, c] of Object.entries(m.concepts)) {
+        if (c.status === "dropped") continue;
+        const L = [`ps:${h} a skos:Concept ; skos:inScheme ps:scheme ; skos:prefLabel ${q(c.label)}`];
+        for (const x of c.alt || []) L.push(`skos:altLabel ${q(x)}`);
+        if (c.use) L.push(`skos:definition ${q(c.use)}`);
+        if (c.scope) L.push(`skos:scopeNote ${q(c.scope)}`);
+        for (const l of m.links.filter((l) => l.from === h)) {
+          if (l.rel === "broader") L.push(`skos:broader ps:${l.to}`);
+          if (l.rel === "related") L.push(`skos:related ps:${l.to}`);
+          if (l.rel === "sameas") L.push(`skos:exactMatch ps:${l.to}`);
+          if (l.rel === "partof") L.push(`ps:partOf ps:${l.to}`);
+        }
+        T.push(L.join(" ;\n  ") + " .");
+      }
+      writeFileSync(base + "research-ontology.ttl", T.join("\n") + "\n");
+      const parent = {}; for (const l of m.links) if (["broader", "partof"].includes(l.rel)) parent[l.from] = l;
+      const kids = {}; for (const [h, c] of Object.entries(m.concepts)) if (c.status !== "dropped") (kids[parent[h]?.to && m.concepts[parent[h].to] ? parent[h].to : "_"] ||= []).push(h);
+      const md = [`# Working ontology: ${m.project}`, ""];
+      const walk = (h, d) => { const c = m.concepts[h]; md.push(`${"  ".repeat(d)}- **${cap(c.label)}**${parent[h] ? ` (${REL[parent[h].rel]} ${m.concepts[parent[h].to]?.label})` : ""}${c.use ? `: ${c.use}` : ""}`); for (const k of (kids[h] || [])) walk(k, d + 1); };
+      for (const r of kids._ || []) walk(r, 0);
+      writeFileSync(base + "research-ontology.md", md.join("\n") + "\n");
+      return `Wrote ${base}research-ontology.ttl (SKOS) and ${base}research-ontology.md.`;
+    }
+    throw new Error("ontology op: show, save, restore, compare, export");
   }
 
   // APA references for the papers the summary rests on.
@@ -608,18 +907,19 @@ export class ResearchMap {
   summaryHtml(refs = []) {
     const m = this.m, cur = this.current();
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-    const LBL = { conversation: "Conversation joined", opportunity: "Kind of gap", what: "What", how: "How", why: "Why", boundaries: "Where it holds", originality: "Originality", utility: "Utility" };
     const parts = [];
     parts.push(`<header><div class="proj">${esc(this.ctx.ledger.peek?.(m.project)?.title || m.project)}</div><div class="date">${esc(new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}</div></header>`);
     if (!cur) parts.push("<p>No idea recorded yet.</p>");
     else {
       parts.push(`<h1>${esc(cur.statement)}</h1><p class="meta">Version ${esc(cur.v)} of ${esc(cur.date)}${cur.of ? `. Last change: ${esc(cur.change)}` : ""}</p>`);
-      const fr = Object.keys(LBL).filter((k) => cur[k]);
-      if (fr.length) parts.push(`<h2>Framing</h2><dl>${fr.map((k) => `<dt>${LBL[k]}</dt><dd>${esc(cap(k === "opportunity" ? { confusion: "Confusion spotting", neglect: "Neglect spotting", application: "Application spotting", problematization: "Problematization" }[cur[k]] || cur[k] : cur[k]))}</dd>`).join("")}</dl>`);
-      if (cur.method) parts.push(`<h2>Methodology</h2><p>${esc(cap(cur.method))}</p>`);
+      const fr = framingText(cur);
+      if (fr) parts.push(`<h2>Framing</h2>${fr.split("\n\n").map((x) => `<p>${esc(cap(x))}</p>`).join("")}`);
+      if (cur.method) parts.push(`<h2>Methodology</h2>${cur.method.split("\n\n").map((x) => `<p>${esc(cap(x))}</p>`).join("")}`);
       const claims = (cur.claims || []).filter((k) => m.claims[k]);
       if (claims.length) parts.push(`<h2>Argument</h2><ol>${claims.map((k) => { const s = this.claimSupport(k); const src = (hs) => [...new Set(hs.map((h) => this.paperLabel(h.split("#")[0]).replace(/ \(P\d+\)$/, "")))].join("; ");
         return `<li>${esc(m.claims[k].text)}<div class="ev">${[s.supports.length ? `For: ${esc(src(s.supports))}` : "No supporting evidence linked yet", s.qualifies.length ? `Qualified by: ${esc(src(s.qualifies))}` : "", s.opposes.length ? `Against: ${esc(src(s.opposes))}` : ""].filter(Boolean).join(". ")}.</div></li>`; }).join("")}</ol>`);
+      const F = this.fw();
+      if (F.edges.some((e) => e.status === "accepted")) parts.push(`<h2>Conceptual framework: ${esc(F.name)}</h2><div class="fig">${this.frameworkSvg(F)}</div>`);
       const cs = (cur.concepts || []).filter((c) => m.concepts[c]);
       if (cs.length) parts.push(`<h2>Key concepts</h2><dl>${cs.map((c) => `<dt>${esc(cap(m.concepts[c].label))}</dt><dd>${esc(cap(m.concepts[c].use) || "Working definition not yet agreed.")}</dd>`).join("")}</dl>`);
       const recent = [...m.versions].reverse().filter((v) => v !== cur && v.status !== "abandoned").slice(0, 4);
@@ -638,7 +938,9 @@ h2 { font: bold 9pt Helvetica, Arial, sans-serif; text-transform: uppercase; let
 .meta { font: 9pt Helvetica, Arial, sans-serif; margin: 0; }
 dl { margin: 0; display: grid; grid-template-columns: 34mm 1fr; gap: 3px 10px; } dt { font-style: italic; } dd { margin: 0; }
 ol, ul { margin: 0; padding-left: 16px; } li { margin: 3px 0; } .ev { font-size: 9pt; }
+p { margin: 0 0 6px; }
 p { margin: 0; }
+.fig svg { width: 100%; max-height: 80mm; display: block; margin: 4px 0; }
 .refs p { padding-left: 1.5em; text-indent: -1.5em; margin: 0 0 3px; font-size: 9.5pt; }
 </style></head><body>${parts.join("\n")}</body></html>`;
   }
@@ -667,8 +969,7 @@ p { margin: 0; }
     if (!cur) L.push("No version yet.", "");
     else {
       L.push(`**${cur.v}** (${cur.date}): ${cur.statement}`, "");
-      const rows = FRAME.map((f) => `| ${f} | ${cur[f] || "_empty_"} |`);
-      L.push("| Frame | Content |", "| --- | --- |", ...rows, "");
+      L.push("### Framing", "", framingText(cur) || "_Not yet written._", "", "### Methodology", "", cur.method || "_Not yet written._", "");
       if (cur.claims.length) {
         L.push("### Claims and their evidence", "");
         for (const k of cur.claims) {
@@ -733,8 +1034,10 @@ p { margin: 0; }
       for (const [k, t] of openTasks) L.push(`- [${t.status === "doing" ? "~" : " "}] ${cap(t.kind)}: ${t.title}${t.due ? ` (due ${t.due})` : ""}, from ${t.source} (${k})`);
       L.push("");
     }
-    const fe = (m.framework?.edges || []).filter((e) => e.status === "accepted");
-    if (fe.length) { L.push("## Framework", ""); for (const e of fe) L.push(`- ${this.edgeLine(e)}`); L.push(""); }
+    for (const F of m.frameworks || []) {
+      const fe = F.edges.filter((e) => e.status === "accepted");
+      if (fe.length) { L.push(`## Framework: ${F.name}`, ""); for (const e of fe) L.push(`- ${this.edgeLine(e)}`); L.push(""); }
+    }
     const loose = Object.entries(m.claims).filter(([k]) => !cur?.claims.includes(k));
     if (loose.length) {
       L.push("## Other claims", "");

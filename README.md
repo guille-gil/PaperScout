@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/banner.png" alt="Paper Scout: a field notebook for literature research" width="100%">
+  <img src="docs/images/banner.png" alt="Paper Scout: a field notebook for academic literature research" width="100%">
 </p>
 
 <p align="center">
@@ -27,37 +27,49 @@ The rule behind everything: **Claude proposes, you decide.** Claude reads, sugge
 
 ### The idea 💡
 
-Every project starts from an idea, and ideas change. The Idea page opens on the current statement. Framing, methodology and literature stay folded until you need them. Below sits the history: what changed, when, and what prompted it (a paper, a supervision meeting, your own thinking), with the wording differences marked.
+Every project starts from an idea, and ideas change. The Idea page opens on the current statement. The framing and the methodology are a few paragraphs of plain prose, and the literature lists the steps of your argument with the evidence for and against each. They stay folded until you need them. Below sits the history: what changed, when, and what prompted it (a paper, a supervision meeting, your own thinking), with the wording differences marked.
 
 <p align="center"><img src="docs/images/idea.png" alt="The Idea page" width="85%"></p>
 
-A notes box sits right under the idea. Jot a thought or a supervisor's comment and Claude folds it into the next proposal.
+Everything on the page can be edited in place: click the pen, change the text, save. No prompt needed. Your edits become a new version of the idea (edits made on the same day share one), so the history stays honest. A notes box sits right under the idea for thoughts and supervisors' comments, which Claude folds into its next proposal.
 
 ### Concepts 📚
 
-Terms that keep coming up in the literature land here as candidates. Adopt, park or drop them. Each concept keeps its definitions verbatim with their source and year, a table comparing what each definition includes, how often the term appears per year, and your own working definition.
+Terms that keep coming up in the literature land here as candidates. Adopt, park or drop them. Each concept keeps its definitions verbatim with their source and year, a table comparing what each definition includes, how often the term appears per year, and your own working definition. Rename a concept, add other names for it or remove a definition that does not belong, right there.
 
 <p align="center"><img src="docs/images/concepts.png" alt="The concept register" width="85%"></p>
 
 ### Framework and ontology 🗺️
 
-Draw the conceptual framework of your project by dragging concepts around and connecting them. Every arrow can point to the claim that justifies it, and its style tells you how solid it is: solid when supported, dashed when there is no evidence yet, red when contested. Claude's suggestions arrive as dotted arrows for you to accept or reject. Save versions as you go, and export a clean black-and-white figure for your paper.
+Few arguments rest on a single chain of cause and effect, so a project can hold several frameworks side by side: your main account, a rival explanation, the model a key paper proposes. Drag concepts around, pull an arrow from the handle of one box to another, and say what the link is: influences, moderates, enables, constrains, precedes, part of, a plain association, or a verb of your own. Label arrows as hypotheses (H1, H2…) and point each one to the claim that justifies it. The line style tells you how solid it is: solid when supported, dashed when there is no evidence yet, red when contested. Claude's suggestions arrive as dotted arrows for you to accept or reject.
 
 <p align="center"><img src="docs/images/framework.png" alt="The conceptual framework" width="85%"></p>
 
-Underneath, a working ontology places each concept as a kind of, or a part of, another.
+Point at one of Claude's suggestions and its arrow lights up; click any arrow to see the claim behind it with the evidence for and against. Moderators land on a small junction on the arrow they moderate, and every sign and hypothesis label sits in its own badge.
+
+Save a version whenever the argument moves, then compare any two: new links show in green, dropped ones in red, changed ones in amber. Restore an old version, or branch it into a new framework to try another line of reasoning. Any framework exports as a clean black-and-white figure for your paper.
+
+<p align="center"><img src="docs/images/framework-compare.png" alt="Comparing two versions of a framework" width="85%"></p>
+
+Not every paper is a theory paper. For a method, system or modelling paper, a framework can be a **pipeline**: its boxes are components (a module, a dataset, a step) as well as concepts, connected by what feeds or produces what, laid out top to bottom. For a survey, the working ontology below doubles as the taxonomy.
+
+<p align="center"><img src="docs/images/pipeline.png" alt="A pipeline framework for a method paper" width="55%"></p>
+
+Underneath, a working ontology places each concept as a kind of, or a part of, another. Rename and redefine concepts in place, move them around the tree, add narrower terms and related links, keep versions, and export the whole thing as SKOS (Turtle) for use elsewhere.
 
 <p align="center"><img src="docs/images/ontology.png" alt="The working ontology" width="85%"></p>
 
 ### Tasks ✅
 
-A calm board for what to read, answer, write or check. Reading suggestions from Feynman, long comments from your supervisor and questions you put to the literature all end up here. Questions carry their verdict and the positions found.
+A calm board for what to read, answer, write or check. Drag cards between columns; open one to rename it, change its kind or due date, or add notes. Reading suggestions from Feynman, long comments from your supervisor and questions you put to the literature all end up here. Questions carry their verdict and the positions found.
 
 <p align="center"><img src="docs/images/tasks.png" alt="The task board" width="85%"></p>
 
 ### Papers
 
 Screen papers into keep, maybe or drop, open their summaries and evidence cards, and export BibTeX with your own Better BibTeX keys. Preprints are matched to their published version automatically, and the ones that were never published are labelled as such.
+
+Claude writes far better from the papers themselves than from links, so every kept paper is saved as a PDF in a **papers** folder inside your project: copied from Zotero when you have it there, downloaded when an open copy exists. Whatever is left becomes a single task ("Add 2 papers to the papers folder"), not one task per paper. Drop the PDFs in the folder under any name and they are matched by title. A tracker shows what is in the folder and what is still missing, and the folder opens in Finder with one click.
 
 <p align="center"><img src="docs/images/papers.png" alt="The paper list" width="85%"></p>
 
@@ -79,6 +91,8 @@ The screenshots show a small example project built from real papers on human-AI 
 ## How it saves tokens
 
 Paper Scout gives every paper a short handle (`P12`) and shows it as a single line. Papers already seen collapse to a stub, repeated searches are answered from memory, summaries come before abstracts, and full texts are read section by section or by passage. Your Zotero library is read directly from disk (read only), so the papers you already have cost almost nothing to find.
+
+The research map grows with the project, so Claude never reads it whole. It starts from a few lines of overview and then pulls only what the step needs: one concept, claim or question with its immediate neighbours and the evidence one step away. The readable Markdown copy is for you. Anything you change on the Research Desk costs no tokens at all.
 
 ## Installation
 
@@ -128,9 +142,10 @@ The full list appears when you run `/feynman:start`. Outside those commands you 
 
 Everything about a project lives in its own folder, readable without the tool:
 
+- `papers/`, the PDFs of your kept papers
 - `research-map.json`, the map itself
 - `research-map.md`, a readable copy regenerated on every change
-- `research-summary.html` and `research-framework.svg` when you export them
+- `research-summary.html`, `research-framework.svg` and `research-ontology.ttl` when you export them
 
 Paper metadata and full texts are cached on your computer. Nothing is sent anywhere except the lookups to the public scholarly APIs.
 

@@ -1,6 +1,6 @@
 {
   "name": "feynman",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Feynman research mode for Cowork: evidence-first research workflows (lit review, deep research, review, audit, compare, draft, summarise, replicate) with token-lean paper access through Paper Scout.",
   "author": {
     "name": "Guillermo Gil de Avalle"

@@ -203,7 +203,7 @@ export class Ledger {
       }
       const papers = Object.entries(snap.papers).map(([h, p]) => ({ h, title: p.title, lasts: this.fixLasts(p), year: p.year || null, venue: p.venue || "", cites: p.cites ?? null,
         ids: p.ids || {}, oa: !!p.oa, local: p.local || "", status: p.status || "", note: p.note || "", role: p.role || "", tldr: p.tldr || "",
-        cards: p.cards || [], repos: p.repos || [], read: p.read || [], citekey: p.citekey || "" }));
+        cards: p.cards || [], repos: p.repos || [], read: p.read || [], citekey: p.citekey || "", pdf: p.pdf || "", pdfFrom: p.pdfFrom || "" }));
       const queries = Object.values(snap.queries || {}).map((q) => ({ id: q.id, label: q.label, handles: q.handles, at: q.at }));
       return JSON.stringify({ name: snap.name, active, activeName: st.name, updated: snap.updated || snap.created, folder: snap.folder || "", title: snap.title || "", papers, queries, sessions: this.sessions() });
     }

@@ -4,7 +4,8 @@
 
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -41,9 +42,22 @@ export function startDesk({ port, cacheDir, callTool, log }) {
         const html = await callTool("map", { action: "summary_html", project: u.searchParams.get("project") || undefined });
         return send(res, 200, html, "text/html; charset=utf-8");
       }
+      if (req.method === "GET" && u.pathname === "/pdf") {
+        // A saved paper from the active project's papers folder, opened in the browser.
+        const full = await callTool("session", { action: "papers", op: "file", name: u.searchParams.get("f") || "" });
+        res.writeHead(200, { "content-type": "application/pdf", "cache-control": "no-store", "x-content-type-options": "nosniff", "content-disposition": "inline" });
+        return res.end(readFileSync(full));
+      }
+      if (req.method === "POST" && u.pathname === "/api/open-folder") {
+        const dir = await callTool("session", { action: "papers", op: "dir" });
+        const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
+        try { spawn(cmd, [dir], { detached: true, stdio: "ignore" }).unref(); } catch {}
+        return send(res, 200, { text: dir });
+      }
       if (req.method === "GET" && u.pathname === "/api/desk") {
         const project = u.searchParams.get("project") || undefined;
         const dump = JSON.parse(await callTool("session", { action: "dump", project }));
+        if (dump.active) try { dump.library = JSON.parse(await callTool("session", { action: "papers", op: "dump" })); } catch {}
         try { dump.map = JSON.parse(await callTool("map", { action: "snapshot", project })); }
         catch (e) { dump.map = null; dump.mapError = e.message || String(e); }
         return send(res, 200, dump);
@@ -52,7 +66,7 @@ export function startDesk({ port, cacheDir, callTool, log }) {
         const body = await readBody(req);
         if (!body) return send(res, 400, { error: "bad JSON" });
         const tool = u.pathname.slice(5);
-        const allowed = { session: ["note", "start", "bibtex", "card", "title"], search: null, code: null, paper: null, map: ["concept", "note", "task", "framework"] };
+        const allowed = { session: ["note", "start", "bibtex", "card", "title", "papers"], search: null, code: null, paper: null, map: ["concept", "note", "task", "framework", "ontology", "edit", "claim", "undefine"] };
         if (!(tool in allowed)) return send(res, 404, { error: "unknown action" });
         if (allowed[tool] && !allowed[tool].includes(body.action)) return send(res, 400, { error: "action not allowed" });
         // From the page, the map only takes concept triage and notes.
@@ -60,7 +74,7 @@ export function startDesk({ port, cacheDir, callTool, log }) {
         if (tool === "map" && body.action === "concept") {
           // Triage and edits by the user; a new concept needs only a label.
           input = { action: "concept" };
-          for (const k of ["id", "label", "status", "use", "scope", "note", "role"]) if (body[k] !== undefined) input[k] = body[k];
+          for (const k of ["id", "label", "status", "use", "scope", "note", "role", "alt", "alt_set", "related", "unrelated"]) if (body[k] !== undefined) input[k] = body[k];
           for (const k of ["parent", "parent_rel"]) if (body[k] !== undefined) input[k] = body[k];
           if (!input.id && !input.label) return send(res, 400, { error: "concept id or label required" });
         } else if (tool === "map" && body.action === "task") {
@@ -68,10 +82,24 @@ export function startDesk({ port, cacheDir, callTool, log }) {
           for (const k of ["id", "text", "kind", "about", "status", "due", "note"]) if (body[k] !== undefined) input[k] = body[k];
           if (!input.id) input.source = "you";
         } else if (tool === "map" && body.action === "framework") {
-          if (["restore"].includes(body.op) && !body.confirmed) return send(res, 400, { error: "confirm restore" });
+          if (["restore", "delete"].includes(body.op) && !body.confirmed) return send(res, 400, { error: "confirm first" });
           input = { ...body, by: "you" };
+        } else if (tool === "map" && body.action === "ontology") {
+          if (body.op === "restore" && !body.confirmed) return send(res, 400, { error: "confirm first" });
+          input = { action: "ontology", op: body.op, id: body.id, with: body.with, note: body.note };
+        } else if (tool === "map" && body.action === "edit") {
+          input = { action: "edit" };
+          for (const k of ["statement", "framing", "method", "claims"]) if (body[k] !== undefined) input[k] = body[k];
+        } else if (tool === "map" && body.action === "claim") {
+          input = { action: "claim" };
+          for (const k of ["id", "text", "status"]) if (body[k] !== undefined) input[k] = body[k];
+        } else if (tool === "map" && body.action === "undefine") {
+          input = { action: "undefine", id: String(body.id || "") };
+        } else if (tool === "session" && body.action === "papers") {
+          if (!["show", "sync"].includes(body.op || "show")) return send(res, 400, { error: "action not allowed" });
+          input = { action: "papers", op: body.op || "show" };
         } else if (tool === "map") {
-          input = body.id ? { action: "note", id: String(body.id), status: body.status } : { action: "note", text: String(body.text || ""), kind: body.kind, about: body.about || "" };
+          input = body.id ? { action: "note", id: String(body.id), status: body.status, text: body.text } : { action: "note", text: String(body.text || ""), kind: body.kind, about: body.about || "" };
         }
         const out = await callTool(tool, input);
         return send(res, 200, { text: typeof out === "string" ? out : JSON.stringify(out) });
