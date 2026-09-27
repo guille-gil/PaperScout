@@ -67,11 +67,10 @@ A plain, printable summary of the current idea, its framing, the argument with i
 
 <p align="center"><img src="docs/images/summary.png" alt="The one-page summary" width="60%"></p>
 
-### Day and night
+### Night Mode 🌙
 
 <p align="center">
-  <img src="docs/images/idea-dark.png" alt="Dark mode" width="62%">&nbsp;&nbsp;
-  <img src="docs/images/mobile.png" alt="Phone width" width="22%">
+  <img src="docs/images/idea-dark.png" alt="Dark mode" width="62%">
 </p>
 
 The screenshots show a small example project built from real papers on human-AI complementarity. The idea itself is only there for illustration.
