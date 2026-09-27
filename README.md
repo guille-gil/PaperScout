@@ -21,7 +21,7 @@ The repository has two parts that work together:
 | **Paper Scout** (`extension/`) | A desktop extension for Claude. It searches and reads papers with as few tokens as possible, keeps a ledger of everything you screened, and stores a **research map** (concepts, framework, the versioned idea, tasks) as plain files in your project folder. It also serves the **Research Desk**, a local page where you make the decisions. |
 | **Feynman for Cowork** (`feynman/`) | A plugin with Feynman's research workflows (literature review, deep research, peer review, drafting and more) adapted to Claude's Cowork mode, with explicit start and end commands so it only runs when you want it. |
 
-The rule behind everything: **Claude proposes, you decide.** Claude reads, suggests concepts, links evidence and drafts. Adopting a concept, accepting a relationship or rewriting your idea always waits for you.
+The rule behind everything: **Claude proposes, you decide.** Claude brainstorms, suggests concepts, links evidence and drafts. Adopting a concept, accepting a relationship or rewriting your idea always waits for you. True human-in-the-wheel.
 
 ## A quick tour
 
