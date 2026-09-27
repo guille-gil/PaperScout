@@ -1,0 +1,25 @@
+{
+  "name": "paper-scout",
+  "version": "0.11.0",
+  "private": true,
+  "description": "Token-lean paper search, reading and research mapping for Claude, packaged as a desktop extension.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Guillermo Gil de Avalle",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/guille-gil/paper-scout.git"
+  },
+  "scripts": {
+    "start": "node server/index.mjs",
+    "pack": "mcpb pack . paper-scout.mcpb"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.9",
+    "sql.js": "^1.14.2",
+    "unpdf": "^1.8.1"
+  },
+  "devDependencies": {
+    "@anthropic-ai/mcpb": "^2.1.2"
+  }
+}

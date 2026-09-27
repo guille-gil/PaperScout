@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Paper Scout</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 170'%3E%3Cpath d='M20 10 H100 L130 40 V150 Q130 160 120 160 H20 Q10 160 10 150 V20 Q10 10 20 10 Z' fill='%23FCFAF5' stroke='%231F2A44' stroke-width='12' stroke-linejoin='round'/%3E%3Cpath d='M32 132 C 52 110, 40 92, 62 82' fill='none' stroke='%232F4B8C' stroke-width='12' stroke-linecap='round'/%3E%3Ccircle cx='98' cy='56' r='20' fill='%23F2D65C' stroke='%231F2A44' stroke-width='8'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap">
+<style>
+/* Paper Scout identity: a field notebook. Warm paper, ink-blue, one highlighter for what needs you. */
+:root {
+  --paper: #F7F3EA; --leaf: #FCFAF5; --rule: #E4DDCC; --rule-soft: #EEE8DB;
+  --ink: #1F2A44; --ink-2: #4A5268; --faint: #8A8E98;
+  --accent: #2F4B8C; --accent-soft: #E3E8F3;
+  --mark: #F2D65C; --mark-soft: #FBF0BF;
+  --good: #3F7D5A; --good-soft: #E1EEE5; --warn: #A87522; --warn-soft: #F6EAD2; --bad: #B4493E; --bad-soft: #F5E1DD;
+  --serif: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --sans: "Inter Tight", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #171B24; --leaf: #1D222D; --rule: #2E3544; --rule-soft: #262C38;
+    --ink: #E9E3D6; --ink-2: #B7B3AA; --faint: #7E8290;
+    --accent: #9DB2E6; --accent-soft: #283452;
+    --mark: #D9BE55; --mark-soft: #3B3522;
+    --good: #7CBF95; --good-soft: #213428; --warn: #D7A854; --warn-soft: #3A3021; --bad: #E08B80; --bad-soft: #3D2426;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #171B24; --leaf: #1D222D; --rule: #2E3544; --rule-soft: #262C38;
+  --ink: #E9E3D6; --ink-2: #B7B3AA; --faint: #7E8290;
+  --accent: #9DB2E6; --accent-soft: #283452;
+  --mark: #D9BE55; --mark-soft: #3B3522;
+  --good: #7CBF95; --good-soft: #213428; --warn: #D7A854; --warn-soft: #3A3021; --bad: #E08B80; --bad-soft: #3D2426;
+}
+* { box-sizing: border-box; }
+html { background: var(--paper); }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--sans); padding: 0 16px 56px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.wrap { max-width: 720px; margin: 0 auto; }
+.wrap.wide { max-width: 1040px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* Header */
+header { position: sticky; top: 0; z-index: 5; background: var(--paper); padding-top: 18px; }
+.bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.brand { font: 500 36px/1 var(--serif); letter-spacing: -0.015em; margin-right: auto; white-space: nowrap; display: inline-flex; align-items: baseline; gap: 12px; }
+.brand i { color: var(--accent); font-style: italic; }
+.logo { display: inline-block; height: var(--cap, 0.68em); }
+.logo svg { height: var(--cap, 0.68em); width: auto; display: block; overflow: visible; }
+.controls { display: inline-flex; align-items: center; gap: 10px; }
+.switch { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--faint); }
+select { background: transparent; border: 0; border-bottom: 1px solid var(--rule); padding: 4px 2px; max-width: 200px; cursor: pointer; color: var(--ink-2); }
+.icon { background: none; border: 0; padding: 6px; cursor: pointer; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; font-size: 13px; border-radius: 6px; }
+.icon:hover { color: var(--ink); background: var(--rule-soft); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.icon.on .dot { background: var(--good); animation: pulse 1.8s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .icon.on .dot { animation: none; } }
+.projline { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.ptitle { font: 500 17px/1.3 var(--sans); color: var(--ink); }
+.pen { background: none; border: 0; padding: 2px 4px; cursor: pointer; color: var(--faint); border-radius: 4px; line-height: 1; }
+.pen:hover { color: var(--accent); background: var(--rule-soft); }
+.pen svg { width: 13px; height: 13px; vertical-align: -1px; }
+.ptitle-in { font: 500 17px/1.3 var(--sans); border: 0; border-bottom: 1px solid var(--accent); background: transparent; padding: 0 2px; min-width: 240px; }
+.updated { font-size: 12.5px; color: var(--faint); }
+nav { display: flex; gap: 24px; border-bottom: 1px solid var(--rule); margin-top: 14px; overflow-x: auto; scrollbar-width: none; }
+nav button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 0 9px; cursor: pointer; color: var(--faint); font-weight: 500; white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; }
+nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.badge { font: 600 11px/1 var(--sans); background: var(--mark); color: #2A2410; border-radius: 999px; padding: 3px 6px; }
+main { padding-top: 22px; }
+.lede { font: italic 400 15px/1.45 var(--serif); color: var(--ink-2); margin: 0 0 18px; }
+.notice { border-left: 3px solid var(--warn); background: var(--leaf); padding: 10px 12px; font-size: 14px; margin: 12px 0; border-radius: 0 6px 6px 0; }
+.notice.err { border-left-color: var(--bad); }
+.notice .actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { background: var(--leaf); border: 1px solid var(--rule); border-radius: 7px; padding: 6px 12px; cursor: pointer; font-size: 13.5px; }
+.btn:hover { border-color: var(--ink-2); }
+.btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn.small { padding: 3px 9px; font-size: 12.5px; }
+.btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-size: 13px; }
+.subnav { display: flex; gap: 18px; margin: -6px 0 18px; font-size: 14px; }
+.subnav button { background: none; border: 0; padding: 2px 0; cursor: pointer; color: var(--faint); border-bottom: 1px solid transparent; }
+.subnav button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+
+/* The idea */
+.kicker { font: 600 11.5px/1 var(--sans); letter-spacing: .09em; text-transform: uppercase; color: var(--faint); display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.kicker .v { color: var(--accent); }
+.printlink { margin-left: auto; font: 500 12.5px var(--sans); letter-spacing: 0; text-transform: none; color: var(--accent); text-decoration: none; }
+.statement { font: 400 27px/1.28 var(--serif); letter-spacing: -0.01em; margin: 10px 0 10px; text-wrap: pretty; }
+.since { color: var(--ink-2); font-size: 14px; margin: 0 0 22px; }
+.since b { font-weight: 500; color: var(--ink); }
+.attention { background: var(--mark-soft); border-radius: 8px; padding: 9px 12px; margin: 0 0 20px; font-size: 14px; }
+.attention summary { cursor: pointer; font-weight: 500; }
+.attention ul { margin: 8px 0 2px; padding-left: 18px; color: var(--ink-2); }
+details.sec { border-top: 1px solid var(--rule); }
+details.sec:last-of-type { border-bottom: 1px solid var(--rule); }
+details.sec > summary { list-style: none; cursor: pointer; padding: 14px 0; display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: baseline; }
+details.sec > summary::-webkit-details-marker { display: none; }
+.chev { color: var(--faint); transition: transform .15s; display: inline-block; font-size: 11px; }
+details[open] > summary .chev, .open > .chev { transform: rotate(90deg); }
+.sec-title { font: 500 19px/1.2 var(--serif); }
+.sec-sum { color: var(--faint); font-size: 13px; text-align: right; }
+.sec-body { padding: 0 0 18px 26px; display: grid; gap: 14px; }
+.field h4 { margin: 0 0 2px; font: 600 11px/1.3 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.field p { margin: 0; max-width: 62ch; }
+.missing { color: var(--faint); font-size: 13.5px; margin: 0; }
+.claim { display: grid; gap: 6px; }
+.claim-t { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: baseline; }
+.meter { display: inline-flex; gap: 2px; align-items: center; }
+.meter i { width: 6px; height: 14px; border-radius: 2px; display: inline-block; }
+.meter .s { background: var(--good); } .meter .o { background: var(--bad); } .meter .q { background: var(--warn); } .meter .n { background: var(--rule); }
+.ev { font-size: 13.5px; color: var(--ink-2); padding: 2px 0 2px 12px; border-left: 2px solid var(--rule); }
+.ev[data-rel="supports"] { border-left-color: var(--good); } .ev[data-rel="opposes"] { border-left-color: var(--bad); } .ev[data-rel="qualifies"] { border-left-color: var(--warn); }
+.ev .src { color: var(--faint); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12.5px; border: 1px solid var(--rule); border-radius: 999px; padding: 2px 10px; color: var(--ink-2); background: var(--leaf); }
+.chip.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+/* Notes */
+.composer { display: grid; gap: 8px; margin: 0 0 22px; }
+.composer textarea { width: 100%; min-height: 44px; resize: vertical; background: var(--leaf); border: 1px solid var(--rule); border-radius: 8px; padding: 9px 11px; font: 15px/1.45 var(--serif); color: var(--ink); }
+.composer textarea::placeholder, .quick input::placeholder { color: var(--faint); font-style: italic; }
+.composer .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.kinds { display: inline-flex; gap: 12px; font-size: 13px; flex-wrap: wrap; }
+.kinds button { background: none; border: 0; padding: 2px 0; cursor: pointer; color: var(--faint); border-bottom: 1px solid transparent; }
+.kinds button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.notes { display: grid; gap: 8px; margin: -10px 0 22px; }
+.note { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; font-size: 14px; padding: 8px 10px; background: var(--leaf); border-radius: 8px; border-left: 3px solid var(--rule); }
+.note[data-kind="supervision"] { border-left-color: var(--accent); }
+.note[data-kind="check"] { border-left-color: var(--mark); }
+.note .nk { font-size: 11.5px; color: var(--faint); }
+
+/* History timeline */
+h2.h { font: 500 19px/1.2 var(--serif); margin: 34px 0 12px; }
+.tl { list-style: none; margin: 0; padding: 0; position: relative; }
+.tl::before { content: ""; position: absolute; left: 5px; top: 8px; bottom: 8px; width: 1px; background: var(--rule); }
+.tl li { position: relative; padding: 0 0 16px 24px; }
+.tl li::before { content: ""; position: absolute; left: 0; top: 5px; width: 11px; height: 11px; border-radius: 50%; background: var(--paper); border: 2px solid var(--rule); }
+.tl li.current::before { border-color: var(--accent); background: var(--accent); }
+.tl li.branch::before { border-color: var(--warn); }
+.tl .head { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; cursor: pointer; background: none; border: 0; padding: 0; text-align: left; width: 100%; }
+.tl .vid { font: 600 13px var(--sans); color: var(--accent); }
+.when { font-size: 12.5px; color: var(--faint); }
+.tag { font-size: 11.5px; border-radius: 4px; padding: 1px 6px; background: var(--rule-soft); color: var(--ink-2); }
+.tag.sup { background: var(--accent-soft); color: var(--accent); }
+.tl .chg { margin-top: 2px; }
+.tl .more { margin-top: 8px; display: grid; gap: 6px; font-size: 14px; color: var(--ink-2); }
+.diff { font: 400 16px/1.45 var(--serif); color: var(--ink); }
+.diff ins { background: var(--good-soft); text-decoration: none; border-radius: 3px; padding: 0 2px; }
+.diff del { color: var(--faint); }
+
+/* Lists */
+.group { margin-top: 22px; }
+.group > summary { list-style: none; cursor: pointer; display: flex; gap: 8px; align-items: center; font: 600 11.5px/1 var(--sans); letter-spacing: .09em; text-transform: uppercase; color: var(--faint); padding: 6px 0 8px; }
+.group > summary::-webkit-details-marker { display: none; }
+.items { border-top: 1px solid var(--rule); }
+.item { border-bottom: 1px solid var(--rule); padding: 10px 0; display: grid; gap: 4px; }
+.item .top { display: grid; grid-template-columns: 14px 1fr auto; gap: 8px; align-items: center; }
+.item .top.nochev { grid-template-columns: 1fr auto; }
+.item .name { font: 500 17px/1.3 var(--serif); cursor: pointer; background: none; border: 0; padding: 0; text-align: left; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.item .name:hover { text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+.item .sub { color: var(--ink-2); font-size: 13.5px; max-width: 62ch; }
+.item .meta { color: var(--faint); font-size: 12.5px; display: flex; gap: 4px 12px; flex-wrap: wrap; }
+.item .indent { padding-left: 22px; display: grid; gap: 4px; }
+.item.needs { box-shadow: inset 3px 0 0 var(--mark); padding-left: 12px; }
+.item .body { padding: 8px 0 4px 22px; display: grid; gap: 12px; font-size: 14px; }
+.choice { display: inline-flex; border: 1px solid var(--rule); border-radius: 7px; overflow: hidden; flex: none; }
+.choice button { background: var(--leaf); border: 0; border-left: 1px solid var(--rule); padding: 3px 10px; font-size: 12.5px; cursor: pointer; color: var(--ink-2); }
+.choice button:first-child { border-left: 0; }
+.choice button[aria-pressed="true"][data-v="good"] { background: var(--good-soft); color: var(--good); font-weight: 600; }
+.choice button[aria-pressed="true"][data-v="warn"] { background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+.choice button[aria-pressed="true"][data-v="bad"] { background: var(--bad-soft); color: var(--bad); font-weight: 600; }
+.choice button:disabled { cursor: default; opacity: .5; }
+.defs { display: grid; gap: 10px; }
+.def { display: grid; grid-template-columns: 58px 1fr; gap: 10px; }
+.def .yr { font: 500 13px var(--sans); color: var(--faint); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.def q { font: italic 400 15.5px/1.45 var(--serif); }
+.def .who { font-size: 12.5px; color: var(--faint); }
+.spark { display: inline-block; vertical-align: -2px; }
+.spark rect { fill: var(--accent); opacity: .7; }
+.bigspark { width: 100%; max-width: 440px; height: 70px; display: block; }
+.bigspark rect { fill: var(--accent); opacity: .8; }
+.bigspark text { fill: var(--faint); font: 10.5px var(--sans); }
+.filters { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; font-size: 13.5px; }
+.filters button { background: none; border: 0; padding: 2px 0; cursor: pointer; color: var(--faint); border-bottom: 1px solid transparent; }
+.filters button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.filters b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.searchrow { display: flex; gap: 8px; margin-bottom: 14px; }
+.searchrow input, .mini input, .mini select, .quick input { flex: 1; min-width: 0; background: var(--leaf); border: 1px solid var(--rule); border-radius: 7px; padding: 7px 10px; }
+.mini { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.mini select { flex: 0 1 auto; padding: 5px 8px; font-size: 13.5px; }
+.links { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.links a { color: var(--accent); }
+.card { font-size: 13.5px; padding-left: 12px; border-left: 2px solid var(--accent); }
+.card .loc { color: var(--faint); font-size: 12px; }
+.card q { display: block; font: italic 14px/1.4 var(--serif); color: var(--ink-2); }
+pre.out { margin: 0; white-space: pre-wrap; font: 12px/1.45 var(--mono); background: var(--rule-soft); padding: 8px; border-radius: 6px; }
+.verdict { font: 600 11px/1 var(--sans); letter-spacing: .05em; text-transform: uppercase; border-radius: 4px; padding: 4px 7px; white-space: nowrap; }
+.verdict.answered { background: var(--good-soft); color: var(--good); }
+.verdict.partly, .verdict.contested { background: var(--warn-soft); color: var(--warn); }
+.verdict.open, .verdict.none { background: var(--rule-soft); color: var(--ink-2); }
+details.plain { margin-top: 18px; }
+details.plain > summary { cursor: pointer; color: var(--ink-2); font-size: 14px; padding: 8px 0; }
+.empty { color: var(--ink-2); padding: 12px 0; max-width: 56ch; margin: 0; }
+.foot { margin-top: 36px; color: var(--faint); font-size: 12px; overflow-wrap: anywhere; }
+table.cmp { border-collapse: collapse; font-size: 13px; width: 100%; }
+.cmpwrap { overflow-x: auto; }
+table.cmp th, table.cmp td { border-bottom: 1px solid var(--rule); padding: 5px 6px; text-align: center; vertical-align: bottom; }
+table.cmp th:first-child, table.cmp td:first-child { text-align: left; }
+table.cmp th { font-weight: 500; color: var(--ink-2); font-size: 12px; }
+table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+
+/* Framework */
+.fwbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.fwhint { font-size: 13px; color: var(--ink-2); min-height: 20px; margin: 0 0 8px; }
+.canvas { background: var(--leaf); border: 1px solid var(--rule); border-radius: 10px; touch-action: none; user-select: none; }
+.canvas svg { width: 100%; display: block; }
+.fw-node rect { fill: var(--paper); stroke: var(--ink); stroke-width: 1.4; }
+.fw-node.cand rect { stroke-dasharray: 5 4; }
+.fw-node.sel rect { stroke: var(--accent); stroke-width: 2.4; }
+.fw-node.from rect { fill: var(--mark-soft); }
+.fw-node text { fill: var(--ink); font: 13px var(--sans); pointer-events: none; }
+.fw-node { cursor: grab; }
+.fw-edge { cursor: pointer; }
+.fw-edge .hit { stroke: transparent; stroke-width: 14; fill: none; }
+.fw-edge .ln { fill: none; stroke-width: 1.6; }
+.fw-edge.supported .ln { stroke: var(--ink); }
+.fw-edge.unsupported .ln, .fw-edge.none .ln { stroke: var(--faint); stroke-dasharray: 6 5; }
+.fw-edge.contested .ln { stroke: var(--bad); }
+.fw-edge.proposed .ln { stroke: var(--accent); stroke-dasharray: 3 4; opacity: .8; }
+.fw-edge.sel .ln { stroke-width: 3; }
+.fw-sign { font: 600 14px var(--sans); }
+.panel { background: var(--leaf); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; margin-top: 10px; display: grid; gap: 10px; font-size: 14px; }
+.panel h3 { margin: 0; font: 500 17px/1.3 var(--serif); }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--faint); margin-top: 8px; }
+.legend i { display: inline-block; width: 22px; border-top: 2px solid var(--ink); vertical-align: middle; margin-right: 5px; }
+.legend i.d { border-top-style: dashed; border-color: var(--faint); } .legend i.c { border-color: var(--bad); } .legend i.p { border-top-style: dotted; border-color: var(--accent); }
+.onto { display: grid; gap: 0; border-top: 1px solid var(--rule); }
+.orow { border-bottom: 1px solid var(--rule); padding: 8px 0; }
+.orow .ohead { display: flex; gap: 8px; align-items: baseline; cursor: pointer; background: none; border: 0; padding: 0; text-align: left; width: 100%; }
+.orow .olabel { font: 500 16px/1.3 var(--serif); }
+.orow .orel { font-size: 12px; color: var(--faint); }
+.orow .obody { padding: 8px 0 2px 22px; display: grid; gap: 8px; font-size: 14px; }
+
+/* Tasks */
+.quick { display: grid; gap: 8px; margin-bottom: 22px; }
+.quick .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.quick input[type="date"] { flex: 0 0 auto; font-size: 13px; padding: 5px 8px; }
+.board { display: grid; gap: 22px; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .board { grid-template-columns: repeat(3, 1fr); gap: 28px; } }
+.lane h3 { margin: 0 0 8px; font: 500 18px/1.2 var(--serif); display: flex; gap: 8px; align-items: baseline; }
+.lane h3 span { font: 500 12.5px var(--sans); color: var(--faint); }
+.tcard { border-top: 1px solid var(--rule); padding: 10px 0; display: grid; gap: 4px; }
+.tcard .tk { font: 600 10.5px/1 var(--sans); letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
+.tcard .tk.read { color: var(--accent); } .tcard .tk.question { color: var(--good); } .tcard .tk.write { color: var(--warn); }
+.tcard .tt { font: 400 16px/1.35 var(--serif); cursor: pointer; background: none; border: 0; padding: 0; text-align: left; color: var(--ink); }
+.tcard .tm { font-size: 12.5px; color: var(--faint); display: flex; gap: 4px 10px; flex-wrap: wrap; }
+.tcard .overdue { color: var(--bad); }
+.tcard .acts { display: flex; gap: 12px; }
+.tcard .tbody { display: grid; gap: 8px; font-size: 14px; padding-top: 4px; }
+.lane.done .tt { color: var(--ink-2); }
+@media (max-width: 520px) { .statement { font-size: 23px; } .brand { font-size: 30px; } .switch > span { display: none; } .controls { gap: 4px; } .item .top { grid-template-columns: 14px 1fr; } .item .top .choice { grid-column: 2; justify-self: start; } nav { gap: 16px; } .sec-sum { display: none; } }
+</style>
+</head><body>
+<div class="wrap" id="wrap">
+  <header>
+    <div class="bar">
+      <span class="brand"><span class="logo" aria-hidden="true"><svg viewBox="4 4 132 162"><path d="M20 10 H100 L130 40 V150 Q130 160 120 160 H20 Q10 160 10 150 V20 Q10 10 20 10 Z" fill="var(--leaf)" stroke="var(--ink)" stroke-width="9" stroke-linejoin="round"/><path d="M100 10 V32 Q100 40 108 40 H130" fill="none" stroke="var(--ink)" stroke-width="9" stroke-linejoin="round"/><path d="M32 132 C 52 110, 40 92, 62 82 S 92 70, 96 58" fill="none" stroke="var(--accent)" stroke-width="9" stroke-linecap="round" stroke-dasharray="1 15"/><circle cx="98" cy="56" r="13" fill="var(--mark)" stroke="var(--ink)" stroke-width="5"/></svg></span><span id="wordmark">Paper <i>Scout</i></span></span>
+      <span class="controls">
+        <label class="switch"><span>Project</span><select id="project" aria-label="Switch project"></select></label>
+        <button class="icon" id="live" type="button" aria-pressed="false" title="Follow changes live"><span class="dot"></span>Live</button>
+        <button class="icon" id="refresh" type="button" title="Refresh" aria-label="Refresh">&#8635;</button>
+      </span>
+    </div>
+    <div class="projline" id="projline"><span class="updated">Connecting…</span></div>
+    <nav role="tablist" id="tabs"></nav>
+  </header>
+  <div id="banner"></div>
+  <main id="main"></main>
+</div>
+
+<script>
+(() => {
+  const TOKEN = "__DESK_TOKEN__";
+  const PROXY = "https://proxy-ub.rug.nl/login?url=";
+  const $ = (s) => document.querySelector(s);
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v == null || v === false) continue;
+      if (k === "class") n.className = v; else if (k === "text") n.textContent = v;
+      else if (k.startsWith("on")) n.addEventListener(k.slice(2), v); else n.setAttribute(k, v === true ? "" : v);
+    }
+    for (const c of kids.flat()) if (c != null && c !== false) n.append(c.nodeType ? c : document.createTextNode(String(c)));
+    return n;
+  };
+  const sv = (tag, attrs = {}, ...kids) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) { if (v == null || v === false) continue; if (k.startsWith("on")) n.addEventListener(k.slice(2), v); else n.setAttribute(k, v); } for (const c of kids.flat()) if (c != null && c !== false) n.append(c.nodeType ? c : document.createTextNode(String(c))); return n; };
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem("ps:" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem("ps:" + k, JSON.stringify(v)); } catch {} },
+  };
+  const cap = (s) => { s = String(s ?? ""); return s ? s[0].toUpperCase() + s.slice(1) : s; };
+  const S = { data: null, viewing: null, tab: store.get("tab", "idea"), ctab: store.get("ctab", "register"), pfilter: store.get("pfilter", "unsorted"),
+    open: new Set(store.get("open", [])), outputs: {}, live: false, timer: null, busy: false, pendingSwitch: null, noteKind: "thought", draft: store.get("draft", ""),
+    editTitle: false, cq: "", taskKind: "read", fw: { sel: null, connect: false, from: null, pending: null }, drag: null };
+  if (S.tab === "questions") S.tab = "tasks";
+  const isOpen = (k) => S.open.has(k);
+  const remember = () => store.set("open", [...S.open].filter((k) => /^(grp|sec|fw):/.test(k)));
+  const flip = (k) => { S.open.has(k) ? S.open.delete(k) : S.open.add(k); remember(); render(); };
+  const keepOpen = (key) => (e) => { e.target.open ? S.open.add(key) : S.open.delete(key); remember(); };
+
+  // ---------- Paper Scout calls ----------
+  const errText = (e) => e?.code === "offline" ? "Paper Scout is not reachable. Open the Claude desktop app (it starts Paper Scout), then refresh." : cap(e?.message || "Something went wrong talking to Paper Scout.");
+  async function call(tool, input) {
+    let res;
+    try {
+      if (tool === "desk") res = await fetch(`/api/desk?t=${TOKEN}${input?.project ? "&project=" + encodeURIComponent(input.project) : ""}`, { cache: "no-store" });
+      else res = await fetch(`/api/${tool}?t=${TOKEN}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input || {}) });
+    } catch { throw { code: "offline" }; }
+    let body = null; try { body = await res.json(); } catch {}
+    if (!res.ok) throw { message: body?.error || `Paper Scout answered ${res.status}` };
+    return tool === "desk" ? body : body.text;
+  }
+  async function act(tool, input) { try { const r = await call(tool, input); await load({ quiet: true }); return r; } catch (e) { banner(errText(e), true); throw e; } }
+  const slug = (n) => String(n || "").replace(/[^a-z0-9_-]+/gi, "-").toLowerCase();
+  async function load({ quiet = false } = {}) {
+    if (S.busy) return; S.busy = true;
+    try {
+      const d = await call("desk", S.viewing ? { project: S.viewing } : {});
+      S.data = d; if (!S.viewing) S.viewing = slug(d.name);
+      banner(null); render();
+    } catch (e) { if (!quiet) banner(errText(e), true); }
+    finally { S.busy = false; }
+  }
+  const typing = () => ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName) || S.drag;
+  function schedule() { clearTimeout(S.timer); S.timer = setTimeout(async () => { if (!document.hidden && !typing()) await load({ quiet: true }); schedule(); }, S.live ? 6000 : 30000); }
+  function banner(text, err) { $("#banner").replaceChildren(...(text ? [el("div", { class: "notice" + (err ? " err" : "") }, text)] : [])); }
+
+  // ---------- helpers ----------
+  const who = (l) => !l?.length ? "" : l.length === 1 ? l[0] : l.length === 2 ? `${l[0]} & ${l[1]}` : `${l[0]} et al.`;
+  const M = () => S.data?.map;
+  const MM = () => S.data?.map?.map;
+  const canWrite = () => !!S.data?.active && !M()?.readOnly;
+  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  const clipT = (s, n) => (s = String(s || ""), s.length > n ? s.slice(0, n).replace(/\s+\S*$/, "") + "…" : s);
+  function paperRef(h) { const p = M()?.papers?.[h.split("#")[0]]; return p ? p.label : h; }
+  function support(k) { const L = MM().links; const by = (r) => L.filter((l) => l.to === k && l.rel === r).map((l) => l.from); return { supports: by("supports"), opposes: by("opposes"), qualifies: by("qualifies") }; }
+  const REL = { supports: "For", opposes: "Against", qualifies: "Qualifies", informs: "Informs" };
+  function evidence(h, rel) {
+    const [ph, n] = h.split("#"); const p = M().papers[ph]; const c = p && n ? p.cards[Number(n) - 1] : null;
+    return el("div", { class: "ev", "data-rel": rel }, `${REL[rel]}: `, c ? c.c : (p ? p.title : h), el("span", { class: "src" }, ` · ${paperRef(h)}${c?.l ? ", " + c.l : ""}`));
+  }
+  function meter(s) {
+    const cells = [...s.supports.map(() => "s"), ...s.qualifies.map(() => "q"), ...s.opposes.map(() => "o")];
+    const shown = cells.length ? cells.slice(0, 8) : ["n"];
+    const label = `${s.supports.length} for, ${s.opposes.length} against, ${s.qualifies.length} qualifying`;
+    return el("span", { class: "meter", title: label, role: "img", "aria-label": label }, ...shown.map((c) => el("i", { class: c })));
+  }
+  function spark(pulse, big) {
+    const ys = Object.keys(pulse?.years || {}).map(Number).sort((a, b) => a - b); if (!ys.length) return null;
+    const y0 = ys[0], y1 = ys.at(-1), n = y1 - y0 + 1, max = Math.max(...Object.values(pulse.years));
+    const W = big ? 440 : 56, H = big ? 70 : 14, base = big ? 14 : 0, bw = W / n;
+    const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, class: big ? "bigspark" : "spark", width: big ? null : W, height: big ? null : H, role: "img", "aria-label": `${pulse.total} papers, ${y0} to ${y1}` });
+    for (let y = y0; y <= y1; y++) { const v = pulse.years[y] || 0; if (!v) continue; const h = Math.max(1.5, v / max * (H - base - 2));
+      svg.append(sv("rect", { x: (y - y0) * bw, width: Math.max(1, bw - (big ? 1.5 : 0.6)), y: H - base - h, height: h }, sv("title", {}, `${y}: ${v}`))); }
+    if (big) for (const [x, y, a] of [[0, y0, "start"], [W, y1, "end"]]) svg.append(sv("text", { x, y: H - 1, "text-anchor": a }, y));
+    return svg;
+  }
+  function wordDiff(a, b) {
+    const A = String(a || "").split(/\s+/).filter(Boolean), B = String(b || "").split(/\s+/).filter(Boolean);
+    if (A.length * B.length > 250000) return [b];
+    const L = Array.from({ length: A.length + 1 }, () => new Array(B.length + 1).fill(0));
+    for (let i = A.length - 1; i >= 0; i--) for (let j = B.length - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+    const out = []; let i = 0, j = 0; const push = (t, w) => { const l = out.at(-1); if (l && l.t === t) l.w.push(w); else out.push({ t, w: [w] }); };
+    while (i < A.length && j < B.length) { if (A[i] === B[j]) { push("span", A[i]); i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) push("del", A[i++]); else push("ins", B[j++]); }
+    while (i < A.length) push("del", A[i++]); while (j < B.length) push("ins", B[j++]);
+    return out.flatMap((s, k) => [k ? " " : "", el(s.t, {}, s.w.join(" "))]);
+  }
+  const fmtDate = (s) => { if (!s) return ""; const d = new Date(s.length === 10 ? s + "T12:00:00" : s); return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); };
+  const conceptLabel = (c) => cap(MM()?.concepts?.[c]?.label || c);
+  const rawLabel = (c) => MM()?.concepts?.[c]?.label || c;
+  function labelOf(h) {
+    const m = MM();
+    if (/^C\d+$/.test(h)) return `"${conceptLabel(h)}"`;
+    if (/^K\d+$/.test(h)) return `"${clipT(m.claims[h]?.text || h, 60)}"`;
+    if (/^RQ\d+$/.test(h)) return `"${m.questions[h]?.text || h}"`;
+    if (/^P\d+/.test(h)) return paperRef(h);
+    return h;
+  }
+  const chev = (open) => el("span", { class: "chev", "aria-hidden": "true", style: open ? "transform:rotate(90deg)" : null }, "▶");
+
+  // ---------- what needs the user ----------
+  function needs() {
+    const d = S.data; const m = MM();
+    return {
+      concepts: m ? Object.values(m.concepts).filter((c) => c.status === "candidate").length + (m.framework?.edges || []).filter((e) => e.status === "proposed").length : 0,
+      papers: d && d.active ? d.papers.filter((p) => !p.status).length : 0,
+      tasks: m ? Object.values(m.tasks || {}).filter((t) => t.status === "doing").length : 0,
+    };
+  }
+
+  // ---------- header ----------
+  const PEN = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.3a1.6 1.6 0 0 1 2.3 2.3l-8 8L2.5 13.5l.9-3.1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+  function renderHeader() {
+    const d = S.data;
+    $("#project").replaceChildren(...d.sessions.map((s) => el("option", { value: s, selected: s === S.viewing || null }, s + (s === slug(d.activeName) ? "" : " (view only)"))));
+    const title = cap(d.title || d.name);
+    const upd = d.updated ? "Updated " + new Date(d.updated).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+    const line = $("#projline");
+    if (S.editTitle && d.active) {
+      const inp = el("input", { class: "ptitle-in", value: title, "aria-label": "Project title" });
+      const done = async (save) => { S.editTitle = false; if (save && inp.value.trim() && inp.value.trim() !== title) { try { await act("session", { action: "title", title: inp.value.trim() }); } catch {} } else render(); };
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") done(true); if (e.key === "Escape") done(false); });
+      inp.addEventListener("blur", () => done(true));
+      line.replaceChildren(inp, el("span", { class: "updated" }, upd));
+      setTimeout(() => { inp.focus(); inp.select(); }, 0);
+    } else {
+      const pen = el("button", { class: "pen", type: "button", title: "Rename the project", "aria-label": "Rename the project", onclick: () => { S.editTitle = true; render(); } }); pen.innerHTML = PEN;
+      line.replaceChildren(el("span", { class: "ptitle" }, title), d.active ? pen : null, el("span", { class: "updated" }, upd));
+    }
+  }
+
+  // ---------- render ----------
+  const TABS = [["idea", "Idea"], ["concepts", "Concepts"], ["papers", "Papers"], ["tasks", "Tasks"]];
+  function render() {
+    const d = S.data; if (!d) return;
+    renderHeader();
+    const n = needs();
+    $("#tabs").replaceChildren(...TABS.map(([k, label]) => el("button", { role: "tab", type: "button", "aria-selected": String(S.tab === k), onclick: () => { S.tab = k; store.set("tab", k); render(); } },
+      label, n[k] ? el("span", { class: "badge", title: k === "tasks" ? "In progress" : "Waiting for your decision" }, n[k]) : null)));
+    if (!d.active) {
+      $("#banner").replaceChildren(el("div", { class: "notice" }, `Viewing "${cap(d.title || d.name)}" only. Claude and Feynman are working in "${d.activeName}".`,
+        el("div", { class: "actions" }, S.pendingSwitch === d.name
+          ? [el("button", { class: "btn primary", type: "button", onclick: () => switchTo(d.name) }, "Switch the working project"), el("button", { class: "btn", type: "button", onclick: () => { S.pendingSwitch = null; render(); } }, "Cancel")]
+          : el("button", { class: "btn", type: "button", onclick: () => { S.pendingSwitch = d.name; render(); } }, "Work in this project instead"))));
+    }
+    $("#wrap").classList.toggle("wide", S.tab === "tasks" || (S.tab === "concepts" && S.ctab === "framework"));
+    const view = { idea: viewIdea, concepts: viewConcepts, papers: viewPapers, tasks: viewTasks }[S.tab] || viewIdea;
+    $("#main").replaceChildren(...view().filter(Boolean));
+  }
+
+  // ----- Idea -----
+  const FRAMING = [["conversation", "The conversation it joins"], ["opportunity", "Kind of gap"], ["what", "What: the constructs"], ["how", "How they relate"], ["why", "Why: the mechanism"], ["boundaries", "Where it holds"], ["originality", "Originality"], ["utility", "Utility"]];
+  const OPP = { confusion: "Confusion spotting: competing explanations", neglect: "Neglect spotting: an overlooked area", application: "Application spotting: extending existing work", problematization: "Problematization: challenging assumptions" };
+  const TRIG = { paper: "A paper", card: "Evidence", supervision: "Supervision", own: "Own thinking", data: "Data", question: "A question" };
+  const KIND = { thought: "Thought", supervision: "Supervision", check: "To check" };
+  function section(key, title, summary, body) {
+    return el("details", { class: "sec", open: isOpen(key) || null, ontoggle: keepOpen(key) },
+      el("summary", {}, el("span", { class: "chev", "aria-hidden": "true" }, "▶"), el("span", { class: "sec-title" }, title), el("span", { class: "sec-sum" }, summary)),
+      el("div", { class: "sec-body" }, ...body.filter(Boolean)));
+  }
+  function composer(about, placeholder) {
+    const ta = el("textarea", { rows: "2", placeholder, "aria-label": "New note" });
+    ta.value = about ? "" : S.draft;
+    ta.addEventListener("input", () => { if (!about) { S.draft = ta.value; store.set("draft", S.draft); } });
+    const save = async () => {
+      const text = ta.value.trim(); if (!text) return;
+      try {
+        if (S.noteKind === "check") await call("map", { action: "task", text, kind: "check", about });
+        else await call("map", { action: "note", text, kind: S.noteKind, about });
+        if (!about) { S.draft = ""; store.set("draft", ""); } ta.value = ""; await load({ quiet: true });
+      } catch (e) { banner(errText(e), true); }
+    };
+    ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); } });
+    return el("div", { class: "composer" }, ta, el("div", { class: "row" },
+      el("div", { class: "kinds", role: "group", "aria-label": "Kind of note" }, ...Object.entries(KIND).map(([k, l]) => el("button", { type: "button", "aria-pressed": String(S.noteKind === k), title: k === "check" ? "Goes to Tasks" : null, onclick: (e) => { S.noteKind = k; for (const b of e.target.parentNode.children) b.setAttribute("aria-pressed", String(b === e.target)); } }, l))),
+      el("button", { class: "btn", type: "button", style: "margin-left:auto", onclick: save }, "Save")));
+  }
+  function noteEl(k, n) {
+    return el("div", { class: "note", "data-kind": n.kind },
+      el("div", {}, el("div", {}, n.text), el("div", { class: "nk" }, [KIND[n.kind], n.about ? "On " + labelOf(n.about) : "", new Date(n.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })].filter(Boolean).join(" · "))),
+      canWrite() ? el("button", { class: "linkbtn", type: "button", title: "Mark as dealt with", onclick: () => act("map", { action: "note", id: k, status: "done" }).catch(() => {}) }, "Done") : null);
+  }
+  function viewIdea() {
+    const m = MM();
+    if (!m) return [el("p", { class: "empty" }, S.data.mapError ? "The research map could not be read: " + S.data.mapError : "No research map yet.")];
+    const cur = m.versions.find((v) => v.status === "current") || m.versions.at(-1);
+    if (!cur) return [el("p", { class: "lede" }, "The idea is the short version of what this project argues."),
+      el("p", { class: "empty" }, "Nothing recorded yet. Tell Claude the idea you are starting from. It becomes version 1, and every later change keeps the earlier version together with what prompted it."),
+      canWrite() ? composer("", "Jot a first thought…") : null];
+    const out = [];
+    out.push(el("div", { class: "kicker" }, el("span", {}, "The idea"), el("span", { class: "v" }, cur.v), el("span", {}, fmtDate(cur.date)),
+      el("a", { class: "printlink", href: `/summary?t=${TOKEN}${S.data.active ? "" : "&project=" + encodeURIComponent(S.viewing)}`, target: "_blank", rel: "noopener" }, "One-page summary")));
+    out.push(el("p", { class: "statement" }, cur.statement));
+    const trig = cur.trigger?.type ? (TRIG[cur.trigger.type] || cap(cur.trigger.type)).toLowerCase() : "";
+    out.push(el("p", { class: "since" }, cur.of ? [el("b", {}, cap(cur.change)), trig ? ` (after ${trig})` : ""] : "First version."));
+    if (canWrite()) out.push(composer("", "Jot a thought, a supervisor's comment, or something to check…"));
+    const open = Object.entries(m.notes || {}).filter(([, n]) => n.status === "open").reverse();
+    if (open.length) {
+      const all = isOpen("allnotes"); const shown = all ? open : open.slice(0, 3);
+      out.push(el("div", { class: "notes" }, ...shown.map(([k, n]) => noteEl(k, n)),
+        open.length > 3 ? el("button", { class: "linkbtn", type: "button", onclick: () => flip("allnotes") }, all ? "Show fewer" : `Show all ${open.length} open notes`) : null));
+    }
+    const flags = (M().flags || []).filter((f) => !f.startsWith("candidate"));
+    if (flags.length) out.push(el("details", { class: "attention", open: isOpen("att") || null, ontoggle: keepOpen("att") },
+      el("summary", {}, cap(plural(flags.length, "thing")) + " to look at"),
+      el("ul", {}, ...flags.map((f) => el("li", {}, cap(f).replace(/\b(K|C|RQ)\d+\b/g, (x) => labelOf(x)))))));
+
+    const filled = FRAMING.filter(([k]) => cur[k]);
+    const missing = FRAMING.filter(([k]) => !cur[k]).map(([, l]) => l.split(":")[0].toLowerCase());
+    out.push(section("sec:framing", "Framing", filled.length ? `${filled.length} of ${FRAMING.length} stated` : "Not yet stated", [
+      ...filled.map(([k, l]) => el("div", { class: "field" }, el("h4", {}, l), el("p", {}, k === "opportunity" ? OPP[cur[k]] || cap(cur[k]) : cap(cur[k])))),
+      missing.length ? el("p", { class: "missing" }, "Still open: " + missing.join(", ") + ".") : null]));
+    out.push(section("sec:method", "Methodology", cur.method ? "Stated" : "Not yet stated", [
+      cur.method ? el("div", { class: "field" }, el("p", {}, cap(cur.method))) : el("p", { class: "missing" }, "Not stated yet. Tell Claude how you plan to study it (design, data, analysis) and it goes into the next version.")]));
+    const claims = (cur.claims || []).map((k) => [k, m.claims[k]]).filter(([, c]) => c);
+    const allS = claims.map(([k]) => support(k));
+    const nSrc = new Set(allS.flatMap((s) => [...s.supports, ...s.opposes, ...s.qualifies]).map((h) => h.split("#")[0])).size;
+    const contested = allS.filter((s) => s.opposes.length).length;
+    out.push(section("sec:lit", "Literature", claims.length ? cap([plural(claims.length, "claim"), plural(nSrc, "source"), contested ? `${contested} contested` : ""].filter(Boolean).join(" · ")) : "No claims yet", [
+      claims.length ? null : el("p", { class: "missing" }, "No claims attached yet. Claims are the steps of the argument; each collects the evidence for and against it."),
+      ...claims.map(([k, c], i) => {
+        const s = allS[i]; const key = "claim:" + k; const n = s.supports.length + s.opposes.length + s.qualifies.length;
+        return el("div", { class: "claim" }, el("div", { class: "claim-t" }, meter(s), el("span", {}, cap(c.text))),
+          n ? el("button", { class: "linkbtn", type: "button", style: "justify-self:start", "aria-expanded": String(isOpen(key)), onclick: () => flip(key) }, isOpen(key) ? "Hide evidence" : `Show evidence (${n})`) : el("p", { class: "missing" }, "No evidence linked yet."),
+          isOpen(key) ? [...s.supports.map((h) => evidence(h, "supports")), ...s.qualifies.map((h) => evidence(h, "qualifies")), ...s.opposes.map((h) => evidence(h, "opposes"))] : null);
+      }),
+      cur.concepts?.length ? el("div", { class: "field" }, el("h4", {}, "Concepts it rests on"), el("div", { class: "chips" }, ...cur.concepts.map((c) => el("span", { class: "chip" + (m.concepts[c]?.status === "adopted" ? " on" : "") }, conceptLabel(c))))) : null]));
+
+    const hist = [...m.versions].reverse();
+    if (hist.length > 1) {
+      out.push(el("h2", { class: "h" }, "How it got here"));
+      out.push(el("ol", { class: "tl" }, ...hist.map((v) => {
+        const key = "v:" + v.v; const base = m.versions.find((x) => x.v === v.of);
+        return el("li", { class: v.status },
+          el("button", { class: "head", type: "button", "aria-expanded": String(isOpen(key)), onclick: () => flip(key) },
+            el("span", { class: "vid" }, v.v), el("span", { class: "when" }, fmtDate(v.date)),
+            v.trigger?.type ? el("span", { class: "tag" + (v.trigger.type === "supervision" ? " sup" : "") }, TRIG[v.trigger.type] || cap(v.trigger.type)) : null,
+            ["branch", "abandoned"].includes(v.status) ? el("span", { class: "tag" }, cap(v.status)) : null),
+          el("div", { class: "chg" }, cap(v.change)),
+          isOpen(key) ? el("div", { class: "more" },
+            el("div", { class: "diff" }, ...(base ? wordDiff(base.statement, v.statement) : [v.statement])),
+            v.rationale ? el("div", {}, "Why: " + v.rationale) : null,
+            ...Object.entries(m.notes || {}).filter(([, n]) => n.used === v.v).map(([, n]) => el("div", {}, `From your ${KIND[n.kind].toLowerCase()} note: "${n.text}"`)),
+            v.framework ? el("div", {}, `Framework at the time: ${v.framework}`) : null,
+            v.trigger?.note || v.trigger?.ref ? el("div", {}, cap([v.trigger.note, v.trigger.ref ? v.trigger.ref.replace(/\bN\d+\b/g, "").replace(/\bP\d+(#\d+)?\b/g, (h) => paperRef(h)).trim() : ""].filter(Boolean).join(" · "))) : null) : null);
+      })));
+    }
+    const parts = (M().file || "").split("/");
+    out.push(el("div", { class: "foot", title: M().file || "" }, `A readable copy is kept as research-map.md in ${parts.at(-2) || "the project folder"}.`));
+    return out;
+  }
+
+  // ----- Concepts -----
+  function viewConcepts() {
+    const m = MM(); if (!m) return [el("p", { class: "empty" }, "No research map yet.")];
+    const props = (m.framework?.edges || []).filter((e) => e.status === "proposed").length;
+    const sub = el("div", { class: "subnav", role: "group", "aria-label": "Concepts view" },
+      ...[["register", "Register"], ["framework", "Framework and ontology"]].map(([k, l]) => el("button", { type: "button", "aria-pressed": String(S.ctab === k), onclick: () => { S.ctab = k; store.set("ctab", k); render(); } }, l, k === "framework" && props ? el("span", { class: "badge", style: "margin-left:6px" }, props) : null)));
+    return [sub, ...(S.ctab === "framework" ? viewFramework() : viewRegister())];
+  }
+  function viewRegister() {
+    const m = MM();
+    const all = Object.entries(m.concepts).sort((a, b) => Number(a[0].slice(1)) - Number(b[0].slice(1)));
+    const out = [el("p", { class: "lede" }, "Concepts from the literature. Adopt the ones this project will use; park the rest.")];
+    if (canWrite()) {
+      const inp = el("input", { type: "text", placeholder: "Add a concept yourself…", "aria-label": "New concept" });
+      const add = () => { const v = inp.value.trim(); if (v) act("map", { action: "concept", label: v }).catch(() => {}); };
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+      out.push(el("div", { class: "mini", style: "margin-bottom:6px" }, inp, el("button", { class: "btn", type: "button", onclick: add }, "Add")));
+    }
+    if (!all.length) return [...out, el("p", { class: "empty" }, "None yet. They appear as Claude reads: terms that recur across papers.")];
+    if (all.length > 6) {
+      const f = el("input", { type: "search", placeholder: "Filter concepts", value: S.cq, "aria-label": "Filter concepts" });
+      f.addEventListener("input", () => { S.cq = f.value; const pos = f.selectionStart; render(); const again = document.querySelector('input[aria-label="Filter concepts"]'); if (again) { again.focus(); again.setSelectionRange(pos, pos); } });
+      out.push(el("div", { class: "searchrow", style: "margin:8px 0 0" }, f));
+    }
+    const q = S.cq.trim().toLowerCase();
+    const match = ([, c]) => !q || c.label.toLowerCase().includes(q) || (c.alt || []).some((a) => a.toLowerCase().includes(q));
+    const inUse = new Set(M().inUse);
+    for (const [st, label, defOpen] of [["candidate", "To decide", true], ["adopted", "Adopted", true], ["parked", "Parked", false], ["dropped", "Dropped", false]]) {
+      const cs = all.filter(([, c]) => c.status === st).filter(match); if (!cs.length) continue;
+      const key = "grp:" + st; const open = q ? true : (S.open.has(key) ? true : S.open.has("grp-closed:" + st) ? false : defOpen);
+      out.push(el("details", { class: "group", open: open || null, ontoggle: (e) => { if (e.target.open) { S.open.add(key); S.open.delete("grp-closed:" + st); } else { S.open.delete(key); S.open.add("grp-closed:" + st); } } },
+        el("summary", {}, chev(open), `${label} (${cs.length})`), el("div", { class: "items" }, ...cs.map(([h, c]) => conceptItem(h, c, inUse)))));
+    }
+    return out;
+  }
+  function conceptItem(h, c, inUse) {
+    const m = MM(); const key = "c:" + h; const open = isOpen(key);
+    const defs = Object.entries(m.definitions).filter(([, d]) => d.concept === h).sort((a, b) => (a[1].year || 9999) - (b[1].year || 9999));
+    const years = defs.map(([, d]) => d.year).filter(Boolean);
+    const meta = [c.role ? { core: "Core construct", lens: "Lens", context: "Context" }[c.role] : "", inUse.has(h) ? "Used in the idea" : "",
+      defs.length ? `${cap(plural(defs.length, "definition"))}${years.length ? `, ${years[0]}${years.length > 1 && years.at(-1) !== years[0] ? " to " + years.at(-1) : ""}` : ""}` : "",
+      c.pulse ? `${c.pulse.total.toLocaleString("en-GB")} papers` : ""].filter(Boolean);
+    const opts = [["adopted", "Adopt", "good"], ["parked", "Park", "warn"], ["dropped", "Drop", "bad"]];
+    const item = el("div", { class: "item" + (c.status === "candidate" ? " needs" : "") },
+      el("div", { class: "top" }, chev(open),
+        el("button", { class: "name", type: "button", "aria-expanded": String(open), onclick: () => flip(key) }, cap(c.label), c.pulse ? spark(c.pulse, false) : null),
+        el("div", { class: "choice", role: "group", "aria-label": "Decision for " + c.label }, ...opts.map(([s, l, v]) => el("button", { type: "button", "data-v": v, "aria-pressed": String(c.status === s), disabled: !canWrite() || null,
+          onclick: () => setConcept(h, c.status === s ? "candidate" : s) }, l)))),
+      meta.length ? el("div", { class: "indent" }, el("div", { class: "meta" }, ...meta.map((x) => el("span", {}, x)))) : null);
+    if (open) {
+      const body = el("div", { class: "body" });
+      body.append(editableField(h, "use", "Working definition", c.use, defs.length ? "Not agreed yet. Write one, or ask Claude to propose one from the definitions below." : "Not agreed yet."));
+      if (c.scope || canWrite()) body.append(editableField(h, "scope", "Scope", c.scope, "Where the concept applies and where it does not."));
+      if (c.alt?.length) body.append(el("div", { class: "field" }, el("h4", {}, "Also called"), el("p", {}, c.alt.map(cap).join(", "))));
+      const attrs = (c.attributes || []).filter((x) => defs.some(([, d]) => (d.attrs || []).includes(x)));
+      if (defs.length > 1 && attrs.length) {
+        attrs.sort((x, y) => defs.filter(([, d]) => (d.attrs || []).includes(y)).length - defs.filter(([, d]) => (d.attrs || []).includes(x)).length);
+        const shared = attrs.filter((x) => defs.every(([, d]) => (d.attrs || []).includes(x)));
+        body.append(el("div", { class: "field" }, el("h4", {}, "Definitions compared"),
+          el("div", { class: "cmpwrap" }, el("table", { class: "cmp" },
+            el("thead", {}, el("tr", {}, el("th", {}, ""), ...attrs.map((x) => el("th", { scope: "col" }, cap(x))))),
+            el("tbody", {}, ...defs.map(([, d]) => el("tr", {}, el("td", { title: d.quote }, paperRef(d.h).replace(/ \(P\d+\)$/, "")), ...attrs.map((x) => el("td", { class: (d.attrs || []).includes(x) ? "y" : "", "aria-label": (d.attrs || []).includes(x) ? "Yes" : "No" }))))))),
+          el("p", { class: "missing" }, shared.length ? `Every definition includes: ${shared.map((x) => x.toLowerCase()).join(", ")}.` : "No attribute appears in every definition.")));
+      }
+      if (defs.length) {
+        const dk = "defs:" + h; const dOpen = isOpen(dk) || defs.length <= 2;
+        body.append(el("div", { class: "field" }, el("h4", {}, "How it has been defined"),
+          el("div", { class: "defs" }, ...(dOpen ? defs : defs.slice(0, 2)).map(([, d]) => el("div", { class: "def" }, el("span", { class: "yr" }, d.year || "Undated"),
+            el("div", {}, el("q", {}, d.quote), el("div", { class: "who" }, paperRef(d.h) + (d.loc ? ", " + d.loc : "") + (d.kind === "implicit" ? ", implicit" : "")))))),
+          defs.length > 2 ? el("button", { class: "linkbtn", type: "button", onclick: () => flip(dk) }, dOpen ? "Show fewer" : `Show all ${defs.length} definitions`) : null));
+      }
+      const rel = m.links.filter((l) => l.from === h && ["sameas", "related"].includes(l.rel));
+      if (rel.length) body.append(el("div", { class: "field" }, el("h4", {}, "Related"), el("p", {}, rel.map((l) => `${{ sameas: "Same as", related: "Related to" }[l.rel]} ${conceptLabel(l.to)}`).join("; "))));
+      if (c.pulse) body.append(el("div", { class: "field" }, el("h4", {}, `Papers per year mentioning "${c.pulse.phrase}"`), spark(c.pulse, true)));
+      if (c.useHistory?.length) body.append(el("div", { class: "field" }, el("h4", {}, "Earlier working definitions"), ...c.useHistory.map((u) => el("p", { class: "missing" }, `${cap(u.text)} (until ${fmtDate(u.until)})`))));
+      if (c.note) body.append(el("div", { class: "field" }, el("h4", {}, "Note"), el("p", {}, cap(c.note))));
+      const notes = Object.entries(m.notes || {}).filter(([, n]) => n.about === h && n.status === "open");
+      if (notes.length) body.append(el("div", { class: "notes", style: "margin:0" }, ...notes.map(([k, n]) => noteEl(k, n))));
+      if (canWrite()) {
+        const inp = el("input", { type: "text", placeholder: `A note on ${c.label}…`, "aria-label": `Note on ${c.label}` });
+        const save = () => { const text = inp.value.trim(); if (text) act("map", { action: "note", text, kind: "thought", about: h }).catch(() => {}); };
+        inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } });
+        body.append(el("div", { class: "mini" }, inp, el("button", { class: "btn", type: "button", onclick: save }, "Add")));
+      }
+      item.append(body);
+    }
+    return item;
+  }
+  function editableField(h, field, label, value, empty) {
+    const key = `edit:${h}:${field}`;
+    if (isOpen(key) && canWrite()) {
+      const ta = el("textarea", { rows: "3", style: "width:100%;background:var(--leaf);border:1px solid var(--rule);border-radius:8px;padding:8px 10px;font:15px/1.45 var(--serif)" });
+      ta.value = value || "";
+      const save = async () => { S.open.delete(key); try { await act("map", { action: "concept", id: h, [field]: ta.value.trim() }); } catch { render(); } };
+      setTimeout(() => ta.focus(), 0);
+      return el("div", { class: "field" }, el("h4", {}, label), ta, el("div", { class: "mini", style: "margin-top:6px" }, el("button", { class: "btn", type: "button", onclick: save }, "Save"), el("button", { class: "linkbtn", type: "button", onclick: () => flip(key) }, "Cancel")));
+    }
+    const pen = canWrite() ? el("button", { class: "pen", type: "button", title: `Edit the ${label.toLowerCase()}`, "aria-label": `Edit the ${label.toLowerCase()}`, onclick: () => flip(key) }) : null;
+    if (pen) pen.innerHTML = PEN;
+    return el("div", { class: "field" }, el("h4", {}, label, " ", pen), value ? el("p", {}, cap(value)) : el("p", { class: "missing" }, empty));
+  }
+  async function setConcept(h, status) {
+    const c = MM().concepts[h]; const prev = c.status; c.status = status; render();
+    try { await act("map", { action: "concept", id: h, status }); } catch { c.status = prev; render(); }
+  }
+
+  // ----- Framework and ontology -----
+  const NW = 150, NH = 48, FW = 900;
+  function edgeEvidence(e) {
+    const m = MM(); if (!e.claim || !m.claims[e.claim]) return "none";
+    const s = support(e.claim); return s.opposes.length ? "contested" : s.supports.length ? "supported" : "unsupported";
+  }
+  const EVTEXT = { supported: "Supported by evidence", contested: "Contested: some evidence goes against it", unsupported: "Claim attached, no evidence linked yet", none: "No claim attached yet" };
+  const TYPEWORD = { influences: "influences", moderates: "moderates", associated: "is associated with" };
+  function clipBox(cx, cy, tx, ty) { const dx = tx - cx, dy = ty - cy; if (!dx && !dy) return [cx, cy]; const s = Math.min(Math.abs((NW / 2 + 5) / (dx || 1e-9)), Math.abs((NH / 2 + 5) / (dy || 1e-9))); return [cx + dx * s, cy + dy * s]; }
+  function wrap2(s) { const words = cap(s).split(/\s+/); const L = [""]; for (const w of words) { if ((L.at(-1) + " " + w).trim().length > 19 && L.at(-1)) L.push(w); else L[L.length - 1] = (L.at(-1) + " " + w).trim(); } return L.length > 2 ? [L[0], clipT(L.slice(1).join(" "), 19)] : L; }
+  function edgeSentence(e) {
+    const m = MM(); const F = m.framework;
+    const to = e.type === "moderates" ? (() => { const t = F.edges.find((x) => x.id === e.to); return t ? `the effect of ${rawLabel(t.from)} on ${rawLabel(t.to)}` : e.to; })() : rawLabel(e.to);
+    // Phrased as a noun so plural concept names ("Explanations") read correctly.
+    const sign = e.sign === "+" ? "Positive influence" : e.sign === "-" ? "Negative influence" : "Influence";
+    if (e.type === "moderates") return `Moderation by ${rawLabel(e.from)} of ${to}.`;
+    if (e.type === "associated") return `Association between ${rawLabel(e.from)} and ${to}.`;
+    return `${sign} of ${rawLabel(e.from)} on ${to}.`;
+  }
+  function viewFramework() {
+    const m = MM(); const F = m.framework || { nodes: {}, edges: [], versions: [] };
+    const out = [el("p", { class: "lede" }, "The conceptual framework: which concepts the project relates, and how. Drag boxes to arrange them; the arrangement becomes the figure.")];
+    const inFw = new Set(Object.keys(F.nodes));
+    const avail = Object.entries(m.concepts).filter(([h, c]) => !inFw.has(h) && ["adopted", "candidate"].includes(c.status));
+    if (canWrite()) {
+      const sel = el("select", { "aria-label": "Add a concept to the framework" }, el("option", { value: "" }, "Add a concept…"), ...avail.map(([h, c]) => el("option", { value: h }, cap(c.label))));
+      sel.addEventListener("change", () => { if (sel.value) act("map", { action: "framework", op: "add_node", id: sel.value }).catch(() => {}); });
+      out.push(el("div", { class: "fwbar" }, avail.length ? sel : null,
+        el("button", { class: "btn", type: "button", "aria-pressed": String(S.fw.connect), onclick: () => { S.fw.connect = !S.fw.connect; S.fw.from = null; S.fw.pending = null; render(); } }, S.fw.connect ? "Connecting…" : "Connect two concepts"),
+        el("button", { class: "btn", type: "button", style: "margin-left:auto", title: "Writes research-framework.svg, black and white, into the project folder", onclick: async () => { try { const r = await call("map", { action: "framework", op: "export" }); banner(r.replace(/^Wrote /, "Saved the figure to ")); } catch (e) { banner(errText(e), true); } } }, "Save figure")));
+    }
+    const hint = S.fw.connect ? (S.fw.from ? `From ${conceptLabel(S.fw.from)}: now click the concept it relates to, or an arrow it moderates.` : "Click the concept the relationship starts from.") : "";
+    out.push(el("p", { class: "fwhint" }, hint));
+    if (!inFw.size) out.push(el("p", { class: "empty" }, "Empty so far. Add concepts above, or ask Claude to propose a framework from the idea's claims; its suggestions appear here for you to accept or reject."));
+    else out.push(el("div", { class: "canvas" }, drawFramework(F)));
+    out.push(el("div", { class: "legend" }, el("span", {}, el("i"), "Supported"), el("span", {}, el("i", { class: "d" }), "No evidence yet"), el("span", {}, el("i", { class: "c" }), "Contested"), el("span", {}, el("i", { class: "p" }), "Suggested by Claude")));
+    if (S.fw.pending) out.push(pendingPanel());
+    else if (S.fw.sel && /^E/.test(S.fw.sel)) out.push(edgePanel(F.edges.find((e) => e.id === S.fw.sel)));
+    else if (S.fw.sel && /^C/.test(S.fw.sel) && F.nodes[S.fw.sel]) out.push(nodePanel(S.fw.sel));
+    const props = F.edges.filter((e) => e.status === "proposed");
+    if (props.length) out.push(el("div", { class: "panel" }, el("h3", {}, "Claude suggests"), ...props.map((e) => el("div", { class: "mini", style: "justify-content:space-between" },
+      el("span", {}, edgeSentence(e), e.claim ? el("span", { class: "missing" }, ` Because: ${clipT(m.claims[e.claim]?.text, 90)}`) : null),
+      canWrite() ? el("span", { class: "mini" }, el("button", { class: "btn small", type: "button", onclick: () => act("map", { action: "framework", op: "edit_edge", id: e.id, status: "accepted" }).catch(() => {}) }, "Accept"),
+        el("button", { class: "btn small", type: "button", onclick: () => act("map", { action: "framework", op: "edit_edge", id: e.id, status: "rejected" }).catch(() => {}) }, "Reject")) : null))));
+    // Versions
+    const vk = "fw:versions";
+    out.push(el("details", { class: "plain", open: isOpen(vk) || null, ontoggle: keepOpen(vk) }, el("summary", {}, `Versions of the framework (${F.versions.length})`),
+      el("div", { style: "display:grid;gap:8px;padding-top:4px" },
+        canWrite() ? (() => { const inp = el("input", { type: "text", placeholder: "What changed, in a few words", "aria-label": "Version note" }); return el("div", { class: "mini" }, inp, el("button", { class: "btn", type: "button", onclick: () => act("map", { action: "framework", op: "save", note: inp.value.trim() }).catch(() => {}) }, "Save this version")); })() : null,
+        ...[...F.versions].reverse().map((v) => el("div", { class: "mini", style: "justify-content:space-between" }, el("span", {}, el("b", { style: "font-weight:500" }, v.v), ` ${fmtDate(v.date)}${v.note ? ": " + cap(v.note) : ""} · ${plural(Object.keys(v.nodes).length, "concept")}, ${plural(v.edges.length, "relationship")}`),
+          canWrite() ? el("button", { class: "linkbtn", type: "button", onclick: () => { if (confirm(`Replace the working framework with ${v.v}? Save the current one first if you want to keep it.`)) act("map", { action: "framework", op: "restore", id: v.v, confirmed: true }).catch(() => {}); } }, "Restore") : null)))));
+    out.push(el("h2", { class: "h" }, "Working ontology"));
+    out.push(el("p", { class: "lede", style: "margin-bottom:10px" }, "What each concept is a kind of, or a part of. Place concepts to build the hierarchy; definitions travel with them."));
+    out.push(viewOntology());
+    return out;
+  }
+  function drawFramework(F) {
+    const m = MM();
+    const nodes = Object.entries(F.nodes);
+    const Hh = Math.max(340, Math.max(...nodes.map(([, n]) => n.y)) + NH / 2 + 40);
+    const svg = sv("svg", { viewBox: `0 0 ${FW} ${Hh}`, role: "img", "aria-label": "Conceptual framework" });
+    const colour = { supported: "var(--ink)", contested: "var(--bad)", unsupported: "var(--faint)", none: "var(--faint)", proposed: "var(--accent)" };
+    svg.append(sv("defs", {}, ...Object.entries(colour).map(([k, c]) => sv("marker", { id: "ar-" + k, viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" }, sv("path", { d: "M0 0L10 5L0 10z", fill: c })))));
+    svg.addEventListener("click", (e) => { if (e.target === svg) { S.fw.sel = null; if (!S.fw.from) S.fw.pending = null; render(); } });
+    const pos = (h) => (S.drag?.id === h ? S.drag.p : F.nodes[h]);
+    const mid = {};
+    const live = F.edges.filter((e) => e.status !== "rejected");
+    const edgeG = (e, x1, y1, x2, y2) => {
+      const ev = e.status === "proposed" ? "proposed" : edgeEvidence(e);
+      const g = sv("g", { class: `fw-edge ${ev}${S.fw.sel === e.id ? " sel" : ""}`, role: "button", "aria-label": edgeSentence(e), onclick: (ev2) => { ev2.stopPropagation(); edgeClick(e); } });
+      g.append(sv("line", { class: "hit", x1, y1, x2, y2 }), sv("line", { class: "ln", x1, y1, x2, y2, "marker-end": e.type === "associated" ? null : `url(#ar-${ev})` }));
+      return g;
+    };
+    const layer = sv("g");
+    for (const e of live.filter((e) => e.type !== "moderates")) {
+      const a = pos(e.from), b = pos(e.to); if (!a || !b) continue;
+      const [sx, sy] = clipBox(a.x, a.y, b.x, b.y), [tx, ty] = clipBox(b.x, b.y, a.x, a.y);
+      mid[e.id] = [(sx + tx) / 2, (sy + ty) / 2];
+      layer.append(edgeG(e, sx, sy, tx, ty));
+      if (e.sign) layer.append(sv("text", { class: "fw-sign", x: mid[e.id][0] + 8, y: mid[e.id][1] - 7, fill: "var(--ink-2)" }, e.sign === "-" ? "−" : "+"));
+    }
+    for (const e of live.filter((e) => e.type === "moderates")) {
+      const a = pos(e.from), t = mid[e.to]; if (!a || !t) continue;
+      const [sx, sy] = clipBox(a.x, a.y, t[0], t[1]);
+      layer.append(edgeG(e, sx, sy, t[0], t[1]));
+    }
+    svg.append(layer);
+    for (const [h, n0] of nodes) {
+      const n = pos(h); const c = m.concepts[h];
+      const lines = wrap2(c?.label || h);
+      const g = sv("g", { class: `fw-node${c?.status === "candidate" ? " cand" : ""}${S.fw.sel === h ? " sel" : ""}${S.fw.from === h ? " from" : ""}`, transform: `translate(${n.x - NW / 2},${n.y - NH / 2})`, tabindex: "0", role: "button", "aria-label": cap(c?.label || h) },
+        sv("rect", { width: NW, height: NH, rx: "8" }),
+        ...lines.map((l, i) => sv("text", { x: NW / 2, y: lines.length > 1 ? (i ? 33 : 19) : 29, "text-anchor": "middle" }, l)));
+      g.addEventListener("pointerdown", (ev) => startDrag(ev, h, svg));
+      g.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); nodeClick(h); } });
+      svg.append(g);
+    }
+    return svg;
+  }
+  function startDrag(ev, h, svg) {
+    if (!canWrite()) { nodeClick(h); return; }
+    ev.preventDefault();
+    const pt = (e) => { const r = svg.getBoundingClientRect(); const vb = svg.viewBox.baseVal; return { x: (e.clientX - r.left) / r.width * vb.width, y: (e.clientY - r.top) / r.height * vb.height }; };
+    const start = pt(ev), base = { ...MM().framework.nodes[h] };
+    S.drag = { id: h, p: base, moved: false };
+    const move = (e) => { const p = pt(e); const dx = p.x - start.x, dy = p.y - start.y; if (Math.abs(dx) + Math.abs(dy) > 3) S.drag.moved = true;
+      S.drag.p = { x: Math.max(NW / 2 + 4, Math.min(FW - NW / 2 - 4, base.x + dx)), y: Math.max(NH / 2 + 4, base.y + dy) }; const cv = document.querySelector(".canvas"); if (cv) cv.replaceChildren(drawFramework(MM().framework)); };
+    const up = async () => {
+      window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+      const d = S.drag; S.drag = null;
+      if (!d.moved) { nodeClick(h); return; }
+      MM().framework.nodes[h] = { x: Math.round(d.p.x), y: Math.round(d.p.y) };
+      try { await call("map", { action: "framework", op: "move", id: h, x: d.p.x, y: d.p.y }); } catch (e) { banner(errText(e), true); }
+    };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+  }
+  function nodeClick(h) {
+    if (S.fw.connect && canWrite()) {
+      if (!S.fw.from) S.fw.from = h;
+      else if (S.fw.from === h) S.fw.from = null;
+      else { S.fw.pending = { from: S.fw.from, to: h, type: "influences", sign: "+", claim: "" }; S.fw.from = null; S.fw.connect = false; }
+    } else S.fw.sel = S.fw.sel === h ? null : h;
+    render();
+  }
+  function edgeClick(e) {
+    if (S.fw.connect && S.fw.from && canWrite()) { S.fw.pending = { from: S.fw.from, to: e.id, type: "moderates", sign: "", claim: "" }; S.fw.from = null; S.fw.connect = false; }
+    else S.fw.sel = S.fw.sel === e.id ? null : e.id;
+    render();
+  }
+  function claimSelect(value, onchange) {
+    const m = MM();
+    const s = el("select", { "aria-label": "Claim that justifies it" }, el("option", { value: "" }, "No claim yet"), ...Object.entries(m.claims).filter(([, c]) => c.status !== "dropped").map(([k, c]) => el("option", { value: k, selected: k === value || null }, clipT(cap(c.text), 70))));
+    s.addEventListener("change", () => onchange(s.value)); return s;
+  }
+  function pendingPanel() {
+    const p = S.fw.pending;
+    const typeSel = el("select", { "aria-label": "Kind of relationship", disabled: p.type === "moderates" || null }, ...[["influences", "Influences"], ["associated", "Is associated with"], ["moderates", "Moderates"]].map(([k, l]) => el("option", { value: k, selected: k === p.type || null, disabled: (k === "moderates") !== (p.type === "moderates") || null }, l)));
+    typeSel.addEventListener("change", () => { p.type = typeSel.value; });
+    const signSel = el("select", { "aria-label": "Direction of the effect" }, ...[["+", "Positively"], ["-", "Negatively"], ["", "Direction open"]].map(([k, l]) => el("option", { value: k, selected: k === p.sign || null }, l)));
+    signSel.addEventListener("change", () => { p.sign = signSel.value; });
+    return el("div", { class: "panel" }, el("h3", {}, `${conceptLabel(p.from)} → ${/^E/.test(p.to) ? "an arrow" : conceptLabel(p.to)}`),
+      el("div", { class: "mini" }, typeSel, signSel, claimSelect("", (v) => { p.claim = v; })),
+      el("div", { class: "mini" }, el("button", { class: "btn primary", type: "button", onclick: async () => { S.fw.pending = null; try { await act("map", { action: "framework", op: "add_edge", from: p.from, to: p.to, type: p.type, sign: p.sign, claim: p.claim }); } catch { render(); } } }, "Add relationship"),
+        el("button", { class: "linkbtn", type: "button", onclick: () => { S.fw.pending = null; render(); } }, "Cancel")));
+  }
+  function edgePanel(e) {
+    if (!e) return null; const m = MM(); const ev = edgeEvidence(e);
+    const signSel = el("select", { "aria-label": "Direction of the effect" }, ...[["+", "Positively"], ["-", "Negatively"], ["", "Direction open"]].map(([k, l]) => el("option", { value: k, selected: k === e.sign || null }, l)));
+    signSel.addEventListener("change", () => act("map", { action: "framework", op: "edit_edge", id: e.id, sign: signSel.value }).catch(() => {}));
+    const s = e.claim ? support(e.claim) : null;
+    return el("div", { class: "panel" }, el("h3", {}, edgeSentence(e)),
+      el("div", { class: "missing" }, e.status === "proposed" ? "Suggested by Claude, not yet accepted." : EVTEXT[ev] + "."),
+      e.claim && s ? el("div", {}, el("div", { class: "claim-t" }, meter(s), el("span", {}, cap(m.claims[e.claim]?.text))), ...[...s.supports.map((h) => evidence(h, "supports")), ...s.opposes.map((h) => evidence(h, "opposes"))]) : null,
+      canWrite() ? el("div", { class: "mini" }, e.type === "moderates" ? null : signSel, claimSelect(e.claim, (v) => act("map", { action: "framework", op: "edit_edge", id: e.id, claim: v }).catch(() => {})),
+        e.status === "proposed" ? el("button", { class: "btn small", type: "button", onclick: () => act("map", { action: "framework", op: "edit_edge", id: e.id, status: "accepted" }).catch(() => {}) }, "Accept") : null,
+        el("button", { class: "linkbtn", type: "button", style: "color:var(--bad)", onclick: () => { S.fw.sel = null; act("map", { action: "framework", op: "remove_edge", id: e.id }).catch(() => {}); } }, "Remove")) : null);
+  }
+  function nodePanel(h) {
+    const c = MM().concepts[h];
+    return el("div", { class: "panel" }, el("h3", {}, cap(c.label)), el("p", { style: "margin:0" }, c.use ? cap(c.use) : el("span", { class: "missing" }, "No working definition yet.")),
+      canWrite() ? el("div", { class: "mini" }, el("button", { class: "linkbtn", type: "button", onclick: () => { S.tab = "concepts"; S.ctab = "register"; S.open.add("c:" + h); store.set("ctab", "register"); render(); } }, "Open in the register"),
+        el("button", { class: "linkbtn", type: "button", style: "color:var(--bad);margin-left:auto", onclick: () => { S.fw.sel = null; act("map", { action: "framework", op: "remove_node", id: h }).catch(() => {}); } }, "Remove from the framework")) : null);
+  }
+  function viewOntology() {
+    const m = MM();
+    const cs = Object.entries(m.concepts).filter(([, c]) => ["adopted", "candidate"].includes(c.status));
+    if (!cs.length) return el("p", { class: "empty" }, "No adopted or candidate concepts yet.");
+    const parentOf = {}; for (const l of m.links) if (["broader", "partof"].includes(l.rel) && m.concepts[l.from]) parentOf[l.from] = l;
+    const kids = {}; for (const [h] of cs) { const p = parentOf[h]?.to; (kids[p && m.concepts[p] ? p : "_root"] ||= []).push(h); }
+    const rows = [];
+    const walk = (h, depth) => { rows.push([h, depth]); for (const k of (kids[h] || []).sort((a, b) => conceptLabel(a).localeCompare(conceptLabel(b)))) walk(k, depth + 1); };
+    for (const r of (kids._root || []).sort((a, b) => conceptLabel(a).localeCompare(conceptLabel(b)))) walk(r, 0);
+    return el("div", { class: "onto" }, ...rows.map(([h, depth]) => {
+      const c = m.concepts[h]; const key = "o:" + h; const open = isOpen(key); const pl = parentOf[h];
+      const row = el("div", { class: "orow", style: `padding-left:${depth * 22}px` },
+        el("button", { class: "ohead", type: "button", "aria-expanded": String(open), onclick: () => flip(key) }, chev(open), el("span", { class: "olabel" }, cap(c.label)),
+          pl ? el("span", { class: "orel" }, `${pl.rel === "partof" ? "Part of" : "A kind of"} ${rawLabel(pl.to)}`) : null,
+          c.status === "candidate" ? el("span", { class: "orel" }, "· Candidate") : null));
+      if (open) {
+        const body = el("div", { class: "obody" }, el("p", { style: "margin:0" }, c.use ? cap(c.use) : el("span", { class: "missing" }, "No working definition yet.")));
+        if (canWrite()) {
+          const others = cs.filter(([k]) => k !== h);
+          const relSel = el("select", { "aria-label": "Kind of placement" }, el("option", { value: "broader", selected: pl?.rel !== "partof" || null }, "A kind of"), el("option", { value: "partof", selected: pl?.rel === "partof" || null }, "Part of"));
+          const parSel = el("select", { "aria-label": "Place under" }, el("option", { value: "" }, "Nothing (top level)"), ...others.map(([k, o]) => el("option", { value: k, selected: pl?.to === k || null }, cap(o.label))));
+          const apply = () => act("map", { action: "concept", id: h, parent: parSel.value, parent_rel: relSel.value }).catch(() => {});
+          relSel.addEventListener("change", () => { if (parSel.value) apply(); }); parSel.addEventListener("change", apply);
+          body.append(el("div", { class: "mini" }, el("span", { class: "missing" }, "Place as"), relSel, parSel));
+        }
+        row.append(body);
+      }
+      return row;
+    }));
+  }
+
+  // ----- Papers -----
+  function viewPapers() {
+    const d = S.data; const out = [];
+    out.push(el("form", { class: "searchrow", onsubmit: search }, el("label", { class: "sr", for: "q" }, "Search papers"),
+      el("input", { type: "search", id: "q", placeholder: d.active ? "Search your Zotero and Semantic Scholar" : "Work in this project to search", disabled: !d.active || null, autocomplete: "off" }),
+      el("button", { class: "btn", type: "submit", disabled: !d.active || null }, "Search")));
+    if (S.outputs._search) out.push(el("div", { class: "notice" }, S.outputs._search));
+    const c = { unsorted: 0, kept: 0, maybe: 0, dropped: 0, all: d.papers.length };
+    for (const p of d.papers) c[p.status || "unsorted"]++;
+    out.push(el("div", { class: "filters" }, ...[["unsorted", "To screen"], ["kept", "Kept"], ["maybe", "Maybe"], ["dropped", "Dropped"], ["all", "All"]].map(([k, l]) =>
+      el("button", { type: "button", "aria-pressed": String(S.pfilter === k), onclick: () => { S.pfilter = k; store.set("pfilter", k); render(); } }, l, " ", el("b", {}, c[k])))));
+    const ps = d.papers.filter((p) => S.pfilter === "all" || (p.status || "unsorted") === S.pfilter).sort((a, b) => Number(b.h.slice(1)) - Number(a.h.slice(1)));
+    if (!ps.length) out.push(el("p", { class: "empty" }, d.papers.length ? "Nothing here." : "No papers yet. Search above, or start Feynman on this project."));
+    else out.push(el("div", { class: "items" }, ...ps.slice(0, 150).map(paperItem)));
+    out.push(el("details", { class: "plain", open: isOpen("log") || null, ontoggle: keepOpen("log") },
+      el("summary", {}, `Search log (${d.queries.length}) and BibTeX export`),
+      el("div", { style: "display:grid;gap:10px;padding-top:6px" },
+        el("div", { class: "searchrow" }, el("input", { type: "text", id: "bibpath", placeholder: `~/Downloads/${slug(d.name)}.bib` }), el("button", { class: "btn", type: "button", disabled: !d.active || null, onclick: bibtex }, "Export kept")),
+        S.outputs._bib ? el("pre", { class: "out" }, S.outputs._bib) : null,
+        ...[...d.queries].sort((a, b) => Number(b.id.slice(1)) - Number(a.id.slice(1))).map((q) => el("div", { class: "meta" }, el("span", {}, cap(q.label)), el("span", {}, plural(q.handles.length, "paper")))))));
+    return out;
+  }
+  function isPreprint(p) { return !!p.ids.arxiv && !p.ids.doi && (!p.venue || /arxiv|corr|preprint/i.test(p.venue)); }
+  function paperItem(p) {
+    const key = "p:" + p.h; const d = S.data; const open = isOpen(key);
+    const opts = [["kept", "Keep", "good"], ["maybe", "Maybe", "warn"], ["dropped", "Drop", "bad"]];
+    const item = el("div", { class: "item" + (!p.status && d.active ? " needs" : "") },
+      el("div", { class: "top" }, chev(open), el("button", { class: "name", type: "button", "aria-expanded": String(open), onclick: () => flip(key) }, p.title || "Untitled"),
+        el("div", { class: "choice", role: "group", "aria-label": "Screening decision" }, ...opts.map(([s, l, v]) => el("button", { type: "button", "data-v": v, "aria-pressed": String(p.status === s), disabled: !d.active || null, onclick: () => mark(p.h, p.status === s ? "clear" : s) }, l)))),
+      el("div", { class: "indent" }, el("div", { class: "meta" }, ...[who(p.lasts), p.year, isPreprint(p) ? "Preprint" : p.venue, p.cites != null ? `${p.cites} citations` : "", p.ids.zot ? "In Zotero" : "", p.cards.length ? cap(plural(p.cards.length, "card")) : ""].filter(Boolean).map((x) => el("span", {}, x)))));
+    if (open) {
+      const body = el("div", { class: "body" });
+      if (p.tldr) body.append(el("p", { style: "margin:0" }, p.tldr));
+      if (p.note) body.append(el("div", { class: "field" }, el("h4", {}, "Note"), el("p", {}, cap(p.note))));
+      for (const c of p.cards) body.append(el("div", { class: "card" }, el("div", {}, cap(c.c)), c.q ? el("q", {}, c.q) : null, c.l ? el("div", { class: "loc" }, c.l) : null));
+      const links = [];
+      if (p.ids.doi) links.push(el("a", { href: `https://doi.org/${p.ids.doi}`, target: "_blank", rel: "noopener" }, "Published version"));
+      if (p.ids.arxiv) links.push(el("a", { href: `https://arxiv.org/abs/${p.ids.arxiv}`, target: "_blank", rel: "noopener" }, p.ids.doi ? "Open copy on arXiv" : "arXiv"));
+      if (p.ids.doi && !p.oa && !p.ids.zot) links.push(el("a", { href: PROXY + encodeURIComponent(`https://doi.org/${p.ids.doi}`), target: "_blank", rel: "noopener" }, "Library access"));
+      if (p.ids.corpus) links.push(el("a", { href: `https://www.semanticscholar.org/p/${p.ids.corpus}`, target: "_blank", rel: "noopener" }, "Semantic Scholar"));
+      links.push(el("a", { href: "#", onclick: (e) => { e.preventDefault(); findCode(p.h); } }, p.repos.length ? "Code: " + p.repos.join(", ") : "Find code"));
+      if (canWrite()) links.push(el("a", { href: "#", onclick: (e) => { e.preventDefault(); act("map", { action: "task", text: `Read ${p.title}`, kind: "read", about: p.h }).then(() => banner("Added to Tasks.")).catch(() => {}); } }, "Add to reading tasks"));
+      body.append(el("div", { class: "links" }, ...links));
+      if (S.outputs[p.h]) body.append(el("pre", { class: "out" }, S.outputs[p.h]));
+      item.append(body);
+    }
+    return item;
+  }
+  async function mark(h, status) {
+    const p = S.data.papers.find((x) => x.h === h); const prev = p.status; p.status = status === "clear" ? "" : status; render();
+    try { await act("session", { action: "note", handles: [h], status }); } catch { p.status = prev; render(); }
+  }
+  async function findCode(h) { S.outputs[h] = "Looking for repositories…"; S.open.add("p:" + h); render();
+    try { S.outputs[h] = String(await call("code", { ids: [h] })).replace(/\nRepositories are listed only.*$/s, ""); } catch (e) { S.outputs[h] = errText(e); } render(); load({ quiet: true }); }
+  async function search(ev) {
+    ev.preventDefault(); const q = $("#q").value.trim(); if (!q) return;
+    S.outputs._search = `Searching for "${q}"…`; render();
+    try { const txt = String(await call("search", { query: q })); S.outputs._search = cap(txt.split("\n")[0].replace(/^Q\d+ /, "")); S.pfilter = "unsorted"; await load({ quiet: true }); }
+    catch (e) { S.outputs._search = errText(e); render(); }
+  }
+  async function bibtex() {
+    const path = $("#bibpath").value.trim(); S.outputs._bib = "Writing BibTeX…"; render();
+    try { S.outputs._bib = String(await call("session", path ? { action: "bibtex", path } : { action: "bibtex" })); } catch (e) { S.outputs._bib = errText(e); } render();
+  }
+
+  // ----- Tasks -----
+  const TKIND = { read: "Read", question: "Question", write: "Write", check: "Check", other: "Other" };
+  const TSRC = { you: "From you", supervisor: "From your supervisor", feynman: "From Feynman", claude: "From Claude" };
+  function viewTasks() {
+    const m = MM(); if (!m) return [el("p", { class: "empty" }, "No research map yet.")];
+    const out = [el("p", { class: "lede" }, "What to read, answer, write or check. Questions put to the literature live here too, with what came back.")];
+    if (canWrite()) {
+      const inp = el("input", { type: "text", placeholder: "Add a task…", "aria-label": "New task" });
+      const due = el("input", { type: "date", "aria-label": "Due date (optional)" });
+      const add = async () => { const text = inp.value.trim(); if (!text) return; try { await act("map", { action: "task", text, kind: S.taskKind, due: due.value || undefined }); } catch {} };
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+      out.push(el("div", { class: "quick" }, el("div", { class: "row" }, inp, due, el("button", { class: "btn", type: "button", onclick: add }, "Add")),
+        el("div", { class: "kinds", role: "group", "aria-label": "Kind of task" }, ...Object.entries(TKIND).map(([k, l]) => el("button", { type: "button", "aria-pressed": String(S.taskKind === k), onclick: (e) => { S.taskKind = k; for (const b of e.target.parentNode.children) b.setAttribute("aria-pressed", String(b === e.target)); } }, l)))));
+    }
+    const ts = Object.entries(m.tasks || {});
+    const lanes = [["todo", "To do"], ["doing", "In progress"], ["done", "Done"]];
+    const today = new Date().toISOString().slice(0, 10);
+    out.push(el("div", { class: "board" }, ...lanes.map(([st, label]) => {
+      let items = ts.filter(([, t]) => t.status === st);
+      items.sort((a, b) => st === "done" ? String(b[1].done).localeCompare(String(a[1].done)) : (a[1].due || "9999").localeCompare(b[1].due || "9999") || Number(b[0].slice(1)) - Number(a[0].slice(1)));
+      const all = isOpen("lane:" + st); const shown = st === "done" && !all ? items.slice(0, 5) : items;
+      return el("section", { class: "lane " + st }, el("h3", {}, label, el("span", {}, items.length)),
+        ...(items.length ? shown.map(([k, t]) => taskCard(k, t, today)) : [el("p", { class: "missing", style: "border-top:1px solid var(--rule);padding-top:10px" }, st === "doing" ? "Nothing in progress." : st === "todo" ? "Nothing waiting." : "Nothing finished yet.")]),
+        st === "done" && items.length > 5 ? el("button", { class: "linkbtn", type: "button", onclick: () => flip("lane:done") }, all ? "Show fewer" : `Show all ${items.length}`) : null);
+    })));
+    return out;
+  }
+  function taskCard(k, t, today) {
+    const m = MM(); const key = "t:" + k; const open = isOpen(key);
+    const q = t.kind === "question" && t.about ? m.questions[t.about] : null;
+    const overdue = t.due && t.status !== "done" && t.due < today;
+    const next = { todo: [["doing", "Start"], ["done", "Done"]], doing: [["done", "Done"], ["todo", "Back to to do"]], done: [["todo", "Reopen"]] }[t.status];
+    const card = el("div", { class: "tcard" },
+      el("div", { class: "tk " + t.kind }, TKIND[t.kind] || "Task"),
+      el("button", { class: "tt", type: "button", "aria-expanded": String(open), onclick: () => flip(key) }, cap(t.title)),
+      el("div", { class: "tm" }, el("span", {}, TSRC[t.source] || "From " + t.source), t.due ? el("span", { class: overdue ? "overdue" : "" }, (overdue ? "Overdue: " : "Due ") + fmtDate(t.due)) : null,
+        q?.verdict ? el("span", { class: "verdict " + q.verdict }, q.verdict) : null, t.status === "done" && t.done ? el("span", {}, "Done " + fmtDate(t.done)) : null),
+      canWrite() ? el("div", { class: "acts" }, ...next.map(([s, l]) => el("button", { class: "linkbtn", type: "button", onclick: () => act("map", { action: "task", id: k, status: s }).catch(() => {}) }, l))) : null);
+    if (open) {
+      const body = el("div", { class: "tbody" });
+      if (t.about && !q) body.append(el("div", { class: "missing" }, "About " + labelOf(t.about)));
+      if (t.note) body.append(el("p", { style: "margin:0" }, cap(t.note)));
+      if (q) {
+        const pos = m.links.filter((l) => l.rel === "answers" && l.to === t.about).map((l) => l.from);
+        if (q.coverage) body.append(el("div", { class: "missing" }, cap(q.coverage)));
+        for (const kk of pos) { const s = support(kk); body.append(el("div", { class: "claim" }, el("div", { class: "claim-t" }, meter(s), el("span", {}, cap(m.claims[kk]?.text || kk))))); }
+        if (!pos.length) body.append(el("p", { class: "missing" }, "No positions recorded yet."));
+      }
+      if (canWrite()) {
+        const ta = el("textarea", { rows: "2", placeholder: "Notes on this task…", style: "width:100%;background:var(--leaf);border:1px solid var(--rule);border-radius:8px;padding:7px 9px;font:14px/1.4 var(--sans)" }); ta.value = t.note || "";
+        ta.addEventListener("blur", () => { if (ta.value.trim() !== (t.note || "")) act("map", { action: "task", id: k, note: ta.value.trim() }).catch(() => {}); });
+        body.append(ta);
+      }
+      card.append(body);
+    }
+    return card;
+  }
+
+  // ---------- global actions ----------
+  async function switchTo(name) { try { await call("session", { action: "start", name }); S.pendingSwitch = null; S.viewing = slug(name); await load(); } catch (e) { banner(errText(e), true); } }
+  $("#project").addEventListener("change", (e) => { S.viewing = e.target.value; S.pendingSwitch = null; S.fw = { sel: null, connect: false, from: null, pending: null }; load(); });
+  $("#refresh").addEventListener("click", () => load());
+  $("#live").addEventListener("click", () => { S.live = !S.live; $("#live").classList.toggle("on", S.live); $("#live").setAttribute("aria-pressed", String(S.live)); schedule(); if (S.live) load({ quiet: true }); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && S.live) load({ quiet: true }); });
+  // Size the logo to the capital height of the wordmark as actually rendered, so the page mark
+  // spans exactly from the baseline to the top of the P, whatever font loads.
+  function fitLogo() {
+    try {
+      const w = document.getElementById("wordmark"), cs = getComputedStyle(w);
+      const ctx = document.createElement("canvas").getContext("2d");
+      ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      const capH = ctx.measureText("P").actualBoundingBoxAscent;
+      if (capH > 4) document.querySelector(".brand").style.setProperty("--cap", capH + "px");
+    } catch {}
+  }
+  fitLogo(); if (document.fonts?.ready) document.fonts.ready.then(fitLogo);
+  window.addEventListener("resize", fitLogo);
+  load().then(schedule);
+})();
+</script>
+</body></html>

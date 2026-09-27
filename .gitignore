@@ -1,0 +1,5 @@
+node_modules/
+*.mcpb
+*.plugin
+*.log
+.DS_Store

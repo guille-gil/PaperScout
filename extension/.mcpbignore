@@ -1,0 +1,8 @@
+package-lock.json
+*.log
+node_modules/sql.js/dist/*.zip
+node_modules/sql.js/dist/sql-asm*
+node_modules/sql.js/dist/*debug*
+node_modules/sql.js/dist/*browser*
+node_modules/sql.js/dist/worker*
+node_modules/@napi-rs/canvas-linux-*

@@ -1,0 +1,119 @@
+{
+  "manifest_version": "0.3",
+  "name": "paper-scout",
+  "display_name": "Paper Scout",
+  "version": "0.11.0",
+  "description": "Token-lean paper search and reading across your Zotero library (read-only), Semantic Scholar, arXiv and OpenAlex.",
+  "long_description": "Compact one-line search results, TLDR-first paper details, citation snowballing, recommendations, author lookup, and section-level reading of open full text (arXiv HTML, open-access PDFs, or local PDFs). Everything is cached on disk so repeated lookups cost nothing. Keeps a research map in your project folder (concepts, the conceptual framework, the versioned idea, tasks) and serves the Research Desk, a local page on your Mac (127.0.0.1) to work with it.",
+  "author": {
+    "name": "Guillermo Gil de Avalle"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/index.mjs"
+      ],
+      "env": {
+        "SEMANTIC_SCHOLAR_API_KEY": "${user_config.s2_api_key}",
+        "OPENALEX_API_KEY": "${user_config.openalex_api_key}",
+        "PAPER_SCOUT_MAILTO": "${user_config.mailto}",
+        "PAPER_SCOUT_ZOTERO_DIR": "${user_config.zotero_dir}",
+        "PAPER_SCOUT_PROXY": "${user_config.library_proxy}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "search",
+      "description": "Find papers across Zotero, Semantic Scholar, OpenAlex and arXiv with deduplication and project memory"
+    },
+    {
+      "name": "paper",
+      "description": "TLDR, abstract, metadata, BibTeX or Zotero notes for up to 50 papers"
+    },
+    {
+      "name": "graph",
+      "description": "Citations, references, recommendations and author corpora"
+    },
+    {
+      "name": "read",
+      "description": "Section map, sections, matching passages, figures or pages of a paper"
+    },
+    {
+      "name": "code",
+      "description": "List code repositories for papers without exploring them"
+    },
+    {
+      "name": "session",
+      "description": "Project memory: screening marks, evidence cards, search log, roles, BibTeX export"
+    },
+    {
+      "name": "verify",
+      "description": "Mechanical citation check of a draft on disk"
+    },
+    {
+      "name": "map",
+      "description": "Research map of the project: concepts with definitions, the conceptual framework and ontology, questions, tasks, claims with evidence, and the versioned idea, kept in the project folder."
+    },
+    {
+      "name": "desk",
+      "description": "Link to the Research Desk, a local page for screening, cards, searches and BibTeX export"
+    }
+  ],
+  "user_config": {
+    "s2_api_key": {
+      "type": "string",
+      "title": "Semantic Scholar API key (optional)",
+      "description": "Free key from semanticscholar.org/product/api. Without it, searches share a rate-limited pool and may fall back to OpenAlex.",
+      "sensitive": true,
+      "required": false,
+      "default": ""
+    },
+    "openalex_api_key": {
+      "type": "string",
+      "title": "OpenAlex API key (optional)",
+      "description": "Only needed if OpenAlex asks for one.",
+      "sensitive": true,
+      "required": false,
+      "default": ""
+    },
+    "mailto": {
+      "type": "string",
+      "title": "Contact email (recommended)",
+      "description": "Enables Unpaywall (free legal copies of journal articles) and the faster polite pools of OpenAlex and Crossref. Only sent to those services.",
+      "required": false,
+      "default": ""
+    },
+    "zotero_dir": {
+      "type": "directory",
+      "title": "Zotero data folder",
+      "description": "The folder containing zotero.sqlite (Zotero Settings, Advanced, Files and Folders). Leave empty for ~/Zotero.",
+      "required": false,
+      "default": "${HOME}/Zotero"
+    },
+    "library_proxy": {
+      "type": "string",
+      "title": "Library proxy prefix",
+      "description": "Prefix for off-campus library links shown when no open copy exists (University of Groningen by default).",
+      "required": false,
+      "default": "https://proxy-ub.rug.nl/login?url="
+    }
+  },
+  "compatibility": {
+    "platforms": [
+      "darwin"
+    ],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/guille-gil/paper-scout",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/guille-gil/paper-scout.git"
+  }
+}
