@@ -48,6 +48,15 @@ export function startDesk({ port, cacheDir, callTool, log }) {
         res.writeHead(200, { "content-type": "application/pdf", "cache-control": "no-store", "x-content-type-options": "nosniff", "content-disposition": "inline" });
         return res.end(readFileSync(full));
       }
+      if (req.method === "POST" && u.pathname === "/api/open-url") {
+        // Links from the Desk open in the user's own browser, not inside the pane that shows the Desk.
+        const body = await readBody(req);
+        let url; try { url = new URL(String(body?.url || "")); } catch { return send(res, 400, { error: "bad url" }); }
+        if (!["http:", "https:"].includes(url.protocol)) return send(res, 400, { error: "only web links" });
+        const cmd = process.platform === "darwin" ? ["open", [url.href]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", url.href]] : ["xdg-open", [url.href]];
+        try { spawn(cmd[0], cmd[1], { detached: true, stdio: "ignore" }).on("error", () => {}).unref(); } catch { return send(res, 500, { error: "could not open" }); }
+        return send(res, 200, { text: "opened" });
+      }
       if (req.method === "POST" && u.pathname === "/api/open-folder") {
         // The papers folder, or one of the project's linked repositories (only those, never an arbitrary path).
         const which = Number(u.searchParams.get("repo") || 0);
@@ -55,7 +64,7 @@ export function startDesk({ port, cacheDir, callTool, log }) {
         if (which) { const snap = JSON.parse(await callTool("map", { action: "snapshot" })); dir = snap.map?.repos?.[which - 1]?.path; if (!dir) return send(res, 404, { error: "no such repository" }); }
         else dir = await callTool("session", { action: "papers", op: "dir" });
         const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
-        try { spawn(cmd, [dir], { detached: true, stdio: "ignore" }).unref(); } catch {}
+        try { spawn(cmd, [dir], { detached: true, stdio: "ignore" }).on("error", () => {}).unref(); } catch {}
         return send(res, 200, { text: dir });
       }
       if (req.method === "GET" && u.pathname === "/api/desk") {

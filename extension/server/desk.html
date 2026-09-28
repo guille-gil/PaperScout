@@ -1478,6 +1478,19 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.sheet) closeSheet(); });
   $("#help").addEventListener("click", () => openSheet("commands"));
 
+  // Every link that leaves the Desk (papers, Semantic Scholar, the library, GitHub, the summary, PDFs) opens in
+  // your default browser, so the pane showing the Desk never navigates away from it.
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest?.("a[href]"); if (!a || e.defaultPrevented) return;
+    const href = a.getAttribute("href"); if (!href || href === "#" || href.startsWith("#")) return;
+    const url = new URL(href, location.href);
+    if (url.origin === location.origin && !a.target && !/^\/(summary|pdf)/.test(url.pathname)) return;
+    e.preventDefault();
+    fetch(`/api/open-url?t=${TOKEN}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: url.href }) })
+      .then((r) => { if (!r.ok) throw new Error(); banner("Opened in your browser."); setTimeout(() => banner(null), 2500); })
+      .catch(() => window.open(url.href, "_blank", "noopener"));
+  });
+
   // ---------- global actions ----------
   async function switchTo(name) { try { await call("session", { action: "start", name }); S.pendingSwitch = null; S.pinned = false; S.viewing = slug(name); await load(); } catch (e) { banner(errText(e), true); } }
   $("#project").addEventListener("change", (e) => { S.viewing = e.target.value; S.pinned = e.target.value !== slug(S.data?.activeName); S.pendingSwitch = null; S.fw = { sel: null, pending: null, view: null, compare: null, adding: null, renaming: false, creating: false, linking: false }; load(); });

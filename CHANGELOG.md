@@ -2,6 +2,11 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.16.1 (2026-09-28)
+
+### Paper Scout
+- Links on the Research Desk (Semantic Scholar, publisher pages, arXiv, library access, the summary, saved PDFs) open in your default browser, so the pane showing the Desk never navigates away from it.
+
 ## 0.16.0 (2026-09-28)
 
 ### Paper Scout
