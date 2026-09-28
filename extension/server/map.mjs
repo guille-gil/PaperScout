@@ -15,20 +15,25 @@ export const CONCEPT_STATUS = ["candidate", "adopted", "parked", "dropped"];
 export const CONCEPT_ROLE = ["core", "lens", "context", ""];
 export const VERDICTS = ["answered", "partly", "open", "contested", ""];
 export const TRIGGERS = ["paper", "card", "supervision", "own", "data", "question", "edit"];
-const FRAME = ["framing", "method", "conversation", "opportunity", "what", "how", "why", "boundaries", "originality", "utility"];
-// Earlier maps held the framing as eight short fields; it is now prose. The old fields stay readable.
-const LEGACY = ["conversation", "opportunity", "what", "how", "why", "boundaries", "originality", "utility"];
-const PROSE = new Set(["framing", "method"]);
+// The framing has four parts, each as long as it needs to be: background (a paragraph or two),
+// positioning (where the project sits in the literature), the claim (often one sentence) and the novelty.
+export const PARTS = [["background", "Background"], ["positioning", "Positioning"], ["thesis", "Claim"], ["novelty", "Novelty"]];
+const PART_KEYS = PARTS.map(([k]) => k);
+const FRAME = [...PART_KEYS, "method", "framing", "conversation", "opportunity", "what", "how", "why", "boundaries", "originality", "utility"];
+// Earlier maps held the framing as eight short fields, then as one block of prose. Both stay readable.
+const LEGACY = ["framing", "conversation", "opportunity", "what", "how", "why", "boundaries", "originality", "utility"];
+const PROSE = new Set([...PART_KEYS, "framing", "method"]);
 const para = (s) => String(s ?? "").replace(/\r/g, "").split(/\n\s*\n/).map(oneLine).filter(Boolean).join("\n\n").slice(0, 6000);
 const GAP = { confusion: "The gap is one of competing explanations.", neglect: "The gap is an overlooked area.", application: "The opportunity is to extend existing work to a new setting.", problematization: "The opportunity is to challenge an assumption the field takes for granted." };
-export function framingText(v) {
-  if (!v) return "";
-  if (v.framing) return v.framing;
+export function framingParts(v) {
+  const out = Object.fromEntries(PART_KEYS.map((k) => [k, v?.[k] || ""]));
+  if (!v || PART_KEYS.some((k) => v[k])) return out;
+  if (v.framing) return { ...out, background: v.framing };
   const sent = (x) => { x = cap(oneLine(x)); return x && !/[.!?]$/.test(x) ? x + "." : x; };
-  const a = ["conversation", "opportunity", "what", "how", "why"].map((k) => k === "opportunity" ? GAP[v[k]] || sent(v[k]) : sent(v[k])).filter(Boolean).join(" ");
-  const b = ["boundaries", "originality", "utility"].map((k) => sent(v[k])).filter(Boolean).join(" ");
-  return [a, b].filter(Boolean).join("\n\n");
+  const join = (ks) => ks.map((k) => k === "opportunity" ? GAP[v[k]] || sent(v[k]) : sent(v[k])).filter(Boolean).join(" ");
+  return { background: join(["conversation"]), positioning: join(["opportunity", "boundaries"]), thesis: join(["what", "how", "why"]), novelty: join(["originality", "utility"]) };
 }
+export function framingText(v) { const p = framingParts(v); return PARTS.filter(([k]) => p[k]).map(([k, l]) => `${l}: ${p[k]}`).join("\n\n"); }
 const OPPORTUNITY = ["confusion", "neglect", "application", "problematization", ""];
 
 // rel -> allowed [from kinds, to kinds]
@@ -204,8 +209,8 @@ export class ResearchMap {
   }
   versionText(v) {
     const lines = [`${v.v} (${v.status}, ${v.date}${v.of ? `, revises ${v.of}` : ""}): ${v.statement}`];
-    const fr = framingText(v);
-    lines.push(fr ? `  framing: ${fr.replace(/\n\n/g, " / ")}` : "  framing: (empty)");
+    const fp = framingParts(v);
+    for (const [k, l] of PARTS) lines.push(`  ${l.toLowerCase()}: ${fp[k] ? fp[k].replace(/\n\n/g, " / ") : "(empty)"}`);
     lines.push(v.method ? `  method: ${v.method.replace(/\n\n/g, " / ")}` : "  method: (empty)");
     for (const k of v.claims || []) {
       const c = this.m.claims[k]; if (!c) continue;
@@ -347,6 +352,13 @@ export class ResearchMap {
       this.save();
       return `${t} ${x.title} [${x.kind}, ${x.status}${x.about ? ", " + x.about : ""}]`;
     }
+    if (action === "task_order") {
+      // The board's own order after a drag: one column's tasks, top to bottom.
+      if (!["todo", "doing", "done"].includes(a.status)) throw new Error("task_order needs status todo, doing or done");
+      const ids = arr(a.ids).map((x) => x.toUpperCase()).filter((x) => m.tasks[x]);
+      ids.forEach((id, i) => { const t = m.tasks[id]; t.rank = i; if (t.status !== a.status) { t.status = a.status; t.done = a.status === "done" ? today() : ""; } });
+      this.save(); return `Ordered ${ids.length} in ${a.status}.`;
+    }
     if (action === "tasks") {
       const want = a.status ? [a.status] : ["doing", "todo"];
       const ts = Object.entries(m.tasks).filter(([, t]) => want.includes(t.status)).sort((x, y) => want.indexOf(x[1].status) - want.indexOf(y[1].status));
@@ -454,8 +466,10 @@ export class ResearchMap {
       else id = `v${main + 1}`;
       const v = { v: id, date: today(), of: base?.v || "", status: a.branch_of ? "branch" : "current", statement: oneLine(a.statement || base?.statement) };
       for (const f of FRAME) v[f] = a[f] !== undefined ? (PROSE.has(f) ? para(a[f]) : oneLine(a[f])) : base?.[f] || "";
-      // New prose framing replaces the old structured fields.
-      if (a.framing !== undefined) for (const f of LEGACY) if (a[f] === undefined) v[f] = "";
+      // Writing any framing part carries the older framing over into the parts, then retires it.
+      if (PART_KEYS.some((k) => a[k] !== undefined) && base && !PART_KEYS.some((k) => base[k])) { const fp = framingParts(base); for (const k of PART_KEYS) if (a[k] === undefined) v[k] = fp[k]; }
+      if (PART_KEYS.some((k) => a[k] !== undefined) || a.framing !== undefined) for (const f of LEGACY) if (a[f] === undefined) v[f] = "";
+      if (a.framing !== undefined && !PART_KEYS.some((k) => a[k] !== undefined)) { v.background = para(a.framing); v.framing = ""; }
       if (v.opportunity && !OPPORTUNITY.includes(v.opportunity)) throw new Error(`opportunity: ${OPPORTUNITY.filter(Boolean).join(", ")}`);
       v.claims = a.claims !== undefined ? arr(a.claims).map((x) => x.toUpperCase()) : [...(base?.claims || [])];
       v.concepts = a.concepts !== undefined ? arr(a.concepts).map((x) => this.conceptId(x)) : [...(base?.concepts || [])];
@@ -478,25 +492,25 @@ export class ResearchMap {
     if (action === "edit") {
       // The user's own edits from the Research Desk. Each day's edits share one version, so small
       // corrections do not flood the history; anything older is kept as it was.
-      const fields = ["statement", "framing", "method"].filter((f) => a[f] !== undefined);
-      if (!fields.length && a.claims === undefined) throw new Error("edit needs statement, framing, method or claims");
+      const fields = ["statement", ...PART_KEYS, "method"].filter((f) => a[f] !== undefined);
+      if (!fields.length && a.claims === undefined) throw new Error("edit needs statement, a framing part, method or claims");
       const cur = this.current();
       if (!cur && !oneLine(a.statement)) throw new Error("write the idea itself first");
       if (cur && cur.desk && cur.date === today()) {
         const base = m.versions.find((x) => x.v === cur.of);
+        if (fields.some((f) => PART_KEYS.includes(f)) && !PART_KEYS.some((k) => cur[k])) { const fp = framingParts(cur); for (const k of PART_KEYS) cur[k] = fp[k]; for (const f of LEGACY) cur[f] = ""; }
         for (const f of fields) cur[f] = f === "statement" ? oneLine(a[f]) || cur.statement : para(a[f]);
-        if (a.framing !== undefined) for (const f of LEGACY) cur[f] = "";
         if (a.claims !== undefined) { cur.claims = arr(a.claims).map((x) => x.toUpperCase()); for (const k of cur.claims) if (!m.claims[k]) throw new Error(`unknown claim ${k}`); }
         if (base) {
           cur.diff = FRAME.concat(["statement"]).filter((f) => (cur[f] || "") !== (base[f] || "")).concat(cur.claims.filter((k) => !base.claims?.includes(k)).map((k) => `+${k}`), (base.claims || []).filter((k) => !cur.claims.includes(k)).map((k) => `-${k}`));
-          const names = { statement: "the idea", framing: "the framing", method: "the methodology" };
+          const names = { statement: "the idea", background: "the framing", positioning: "the framing", thesis: "the framing", novelty: "the framing", framing: "the framing", method: "the methodology" };
           const touched = [...new Set(cur.diff.map((d) => names[d] || (/^[+-]K/.test(d) ? "the argument" : null)).filter(Boolean))];
           cur.change = `Edited ${touched.length ? touched.join(", ").replace(/, ([^,]*)$/, " and $1") : "the record"} on the Research Desk.`;
         }
         this.save(); return `Updated ${cur.v} (today's edits).`;
       }
-      const names = { statement: "the idea", framing: "the framing", method: "the methodology" };
-      const touched = [...fields.map((f) => names[f]), ...(a.claims !== undefined ? ["the argument"] : [])];
+      const names = { statement: "the idea", background: "the framing", positioning: "the framing", thesis: "the framing", novelty: "the framing", method: "the methodology" };
+      const touched = [...new Set(fields.map((f) => names[f])), ...(a.claims !== undefined ? ["the argument"] : [])];
       return this.tool({ action: "revise", trigger: "edit", desk: true, change: `Edited ${touched.join(", ").replace(/, ([^,]*)$/, " and $1")} on the Research Desk.`, ...Object.fromEntries(fields.map((f) => [f, a[f]])), ...(a.claims !== undefined ? { claims: a.claims } : {}) });
     }
     if (action === "undefine") {
@@ -912,8 +926,8 @@ export class ResearchMap {
     if (!cur) parts.push("<p>No idea recorded yet.</p>");
     else {
       parts.push(`<h1>${esc(cur.statement)}</h1><p class="meta">Version ${esc(cur.v)} of ${esc(cur.date)}${cur.of ? `. Last change: ${esc(cur.change)}` : ""}</p>`);
-      const fr = framingText(cur);
-      if (fr) parts.push(`<h2>Framing</h2>${fr.split("\n\n").map((x) => `<p>${esc(cap(x))}</p>`).join("")}`);
+      const fp = framingParts(cur);
+      if (PART_KEYS.some((k) => fp[k])) parts.push(`<h2>Framing</h2>${PARTS.filter(([k]) => fp[k]).map(([k, l]) => fp[k].split("\n\n").map((x, i) => `<p>${i ? "" : `<b>${l}.</b> `}${esc(cap(x))}</p>`).join("")).join("")}`);
       if (cur.method) parts.push(`<h2>Methodology</h2>${cur.method.split("\n\n").map((x) => `<p>${esc(cap(x))}</p>`).join("")}`);
       const claims = (cur.claims || []).filter((k) => m.claims[k]);
       if (claims.length) parts.push(`<h2>Argument</h2><ol>${claims.map((k) => { const s = this.claimSupport(k); const src = (hs) => [...new Set(hs.map((h) => this.paperLabel(h.split("#")[0]).replace(/ \(P\d+\)$/, "")))].join("; ");
@@ -969,7 +983,8 @@ p { margin: 0; }
     if (!cur) L.push("No version yet.", "");
     else {
       L.push(`**${cur.v}** (${cur.date}): ${cur.statement}`, "");
-      L.push("### Framing", "", framingText(cur) || "_Not yet written._", "", "### Methodology", "", cur.method || "_Not yet written._", "");
+      const fp = framingParts(cur);
+      L.push("### Framing", "", ...PARTS.flatMap(([k, l]) => [`**${l}.** ${fp[k] || "_Not yet written._"}`, ""]), "### Methodology", "", cur.method || "_Not yet written._", "");
       if (cur.claims.length) {
         L.push("### Claims and their evidence", "");
         for (const k of cur.claims) {

@@ -203,7 +203,7 @@ export class Ledger {
       }
       const papers = Object.entries(snap.papers).map(([h, p]) => ({ h, title: p.title, lasts: this.fixLasts(p), year: p.year || null, venue: p.venue || "", cites: p.cites ?? null,
         ids: p.ids || {}, oa: !!p.oa, local: p.local || "", status: p.status || "", note: p.note || "", role: p.role || "", tldr: p.tldr || "",
-        cards: p.cards || [], repos: p.repos || [], read: p.read || [], citekey: p.citekey || "", pdf: p.pdf || "", pdfFrom: p.pdfFrom || "" }));
+        cards: p.cards || [], repos: p.repos || [], read: p.read || [], citekey: p.citekey || "", pdf: p.pdf || "", pdfFrom: p.pdfFrom || "", saved: !!p.saved }));
       const queries = Object.values(snap.queries || {}).map((q) => ({ id: q.id, label: q.label, handles: q.handles, at: q.at }));
       return JSON.stringify({ name: snap.name, active, activeName: st.name, updated: snap.updated || snap.created, folder: snap.folder || "", title: snap.title || "", papers, queries, sessions: this.sessions() });
     }
@@ -220,6 +220,8 @@ export class Ledger {
       const bad = hs.filter((h) => !st.papers[h]);
       for (const h of hs) if (st.papers[h]) {
         if (a.status) st.papers[h].status = a.status === "clear" ? "" : a.status;
+        if (a.saved !== undefined) st.papers[h].saved = !!a.saved;
+        if (a.status === "dropped") st.papers[h].saved = false;
         if (a.note !== undefined) st.papers[h].note = String(a.note).slice(0, 300);
       }
       this.save();
@@ -231,13 +233,13 @@ export class Ledger {
     }
     if (action === "list") {
       let hs = Object.keys(st.papers).sort((x, y) => Number(x.slice(1)) - Number(y.slice(1)));
-      if (a.status) hs = hs.filter((h) => (a.status === "unrated" ? !st.papers[h].status : st.papers[h].status === a.status));
+      if (a.status) hs = hs.filter((h) => (a.status === "unrated" ? !st.papers[h].status : a.status === "saved" ? st.papers[h].saved : st.papers[h].status === a.status));
       if (a.query) { const q = norm(a.query); hs = hs.filter((h) => norm(st.papers[h].title).includes(q) || norm(st.papers[h].note).includes(q)); }
       const limit = Math.max(1, Math.min(Number(a.limit) || 50, 200));
       const shown = hs.slice(-limit);
       const lines = shown.map((h) => {
         const p = st.papers[h];
-        const extra = [p.tldr ? "tldr" : "", p.cards?.length ? `${p.cards.length} cards` : "", p.repos?.length ? `code ${p.repos.join(" ")}` : "", p.read?.length ? `read ${p.read.join(",")}` : "", p.note ? `note: ${p.note}` : ""].filter(Boolean).join("; ");
+        const extra = [p.saved ? "saved" : "", p.tldr ? "tldr" : "", p.cards?.length ? `${p.cards.length} cards` : "", p.repos?.length ? `code ${p.repos.join(" ")}` : "", p.read?.length ? `read ${p.read.join(",")}` : "", p.note ? `note: ${p.note}` : ""].filter(Boolean).join("; ");
         return this.line(h, { full: true, text: extra });
       });
       return [`Session "${st.name}": ${Object.keys(st.papers).length} papers, showing ${shown.length}${a.status ? ` (${a.status})` : ""}`, ...lines].join("\n");

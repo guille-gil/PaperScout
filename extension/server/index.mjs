@@ -15,7 +15,7 @@ import { verifyDraft } from "./verify.mjs";
 import { startDesk } from "./desk.mjs";
 import { ResearchMap, definitionHits } from "./map.mjs";
 
-const VERSION = "0.12.0";
+const VERSION = "0.13.0";
 const PARSER_VERSION = "3";
 const S2 = "https://api.semanticscholar.org/graph/v1";
 const S2_REC = "https://api.semanticscholar.org/recommendations/v1";
@@ -1148,8 +1148,8 @@ const TOOLS = [
     inputSchema: S({ id: ID, sections: { type: "array", items: { type: "string" } }, query: { type: "string" }, figure: { type: "string" }, page: { type: "integer" }, max_tokens: { type: "integer" }, offset: { type: "integer" }, max_hits: { type: "integer" } }, ["id"]) },
   { name: "code", description: "List code repositories for papers (links in the paper, Hugging Face, GitHub READMEs quoting the title) with stars, language, last push. Finds only; never explores.",
     inputSchema: S({ ids: IDS }, ["ids"]) },
-  { name: "session", description: "Project memory. start name=... folder=<project folder on this Mac> starts or resumes a project (the folder holds its research map). list (status, query) recalls papers; note marks handles kept|maybe|dropped with a note; card saves an evidence card (handles=[P12], note=claim, loc, quote); cards lists them; tldr recalls TLDRs; queries lists searches run; roles labels foundation/breakthrough/consolidation/frontier; bibtex writes a .bib (path) for kept papers; sessions lists projects; papers op=sync keeps the kept papers as PDFs in <project folder>/papers (read prefers those files).",
-    inputSchema: S({ action: { type: "string", enum: ["list", "note", "card", "cards", "tldr", "queries", "roles", "bibtex", "start", "sessions", "dump", "title", "papers"] }, op: { type: "string", description: "papers: show|sync (copy kept papers from Zotero, download open PDFs, list the rest in one task)" }, name: { type: "string" }, folder: { type: "string" }, title: { type: "string" }, project: { type: "string", description: "dump: read another project without switching" }, handles: IDS,
+  { name: "session", description: "Project memory. start name=... folder=<project folder on this Mac> starts or resumes a project (the folder holds its research map). list (status, query) recalls papers; note marks handles kept|maybe|dropped with a note; card saves an evidence card (handles=[P12], note=claim, loc, quote); cards lists them; tldr recalls TLDRs; queries lists searches run; roles labels foundation/breakthrough/consolidation/frontier; bibtex writes a .bib (path) for kept papers; sessions lists projects; note saved=true|false marks the papers the argument rests on (kept means interesting; saved means it goes in the folder); papers op=sync puts the saved papers as PDFs in <project folder>/papers (read prefers those files).",
+    inputSchema: S({ action: { type: "string", enum: ["list", "note", "card", "cards", "tldr", "queries", "roles", "bibtex", "start", "sessions", "dump", "title", "papers"] }, op: { type: "string", description: "papers: show|sync (copy saved papers from Zotero, download open PDFs, list the rest in one task)" }, name: { type: "string" }, folder: { type: "string" }, title: { type: "string" }, saved: { type: "boolean", description: "note: save the papers to the project's papers folder (or take them out)" }, project: { type: "string", description: "dump: read another project without switching" }, handles: IDS,
       status: { type: "string" }, note: { type: "string" }, loc: { type: "string" }, quote: { type: "string" }, query: { type: "string" }, path: { type: "string" }, limit: { type: "integer" } }) },
   { name: "verify", description: "Check a draft's citations mechanically: every citation has a source and vice versa, DOIs and arXiv ids resolve to the claimed title and year, cited papers were screened, and numbers next to citations appear in the cited paper's cards or text. Reads the file on this Mac; returns only problems.",
     inputSchema: S({ path: { type: "string", description: "Markdown or LaTeX draft" }, bib: { type: "string", description: ".bib for \\cite keys" }, text: { type: "string" }, numbers: { type: "boolean" } }) },
@@ -1181,7 +1181,7 @@ async function toolReadAll(a) {
   if (a.sections?.length) return toolRead(a);
   return toolOutline(a);
 }
-TOOLS.push({ name: "map", description: "Research map of the active project (research-map.json and .md in the project folder): concepts with definitions and pulse, questions, claims linked to evidence cards, and the versioned idea. Actions: show (overview and warnings), focus (id C3|K2|RQ1|X1: one item with its neighbours and nearby evidence; prefer it to reading the whole map), concepts, concept (id or label; alt, related, broader, sameas, status candidate|adopted|parked|dropped, role core|lens|context, use = working definition, scope, attributes, note), define (id or label, handle P12, quote, loc, kind), undefine (id D3), definitions, scan (id; explicit definition sentences in kept papers or handles), pulse (id; OpenAlex papers per year), claim (text or id; uses, answers, status), question (text or id; verdict answered|partly|open|contested, coverage), questions, link/unlink (from, rel supports|opposes|qualifies|informs|answers|uses|sameas|related|broader, to), revise (new idea version: statement, framing = two to four short paragraphs of prose, method = prose, claims, concepts, trigger paper|card|supervision|own|data|question, trigger_ref, trigger_note, change, rationale, branch_of), version (id, status current|abandoned), idea (current or id, with history), tag (definition id, attributes), compare (concept id; definitions by attribute), notes (the user's open notes from the Desk), note (id, status done), summary (writes a printable one-page research-summary.html with APA references), task (text, kind read|question|write|check|other, source, about, due; or id with status todo|doing|done), tasks (open tasks), framework (several named frameworks per project, fw=FW2 or the active one: op list|create name,kind conceptual|pipeline,copy|from_version|rename name,kind|rename_node id,label,note|activate|delete|show|add_node id or label,component,x,y|remove_node|move|arrange|add_edge from,to,type,sign,hypothesis,claim,verb|edit_edge|remove_edge|save note|restore id|compare id,with|export; pipelines relate components X1 (modules, data, steps) as well as concepts; edges Claude adds are proposals until the user accepts them), ontology (op show|save|restore|compare|export: SKOS Turtle and Markdown). Adopting concepts and revising the idea only after the user agrees.",
+TOOLS.push({ name: "map", description: "Research map of the active project (research-map.json and .md in the project folder): concepts with definitions and pulse, questions, claims linked to evidence cards, and the versioned idea. Actions: show (overview and warnings), focus (id C3|K2|RQ1|X1: one item with its neighbours and nearby evidence; prefer it to reading the whole map), concepts, concept (id or label; alt, related, broader, sameas, status candidate|adopted|parked|dropped, role core|lens|context, use = working definition, scope, attributes, note), define (id or label, handle P12, quote, loc, kind), undefine (id D3), definitions, scan (id; explicit definition sentences in kept papers or handles), pulse (id; OpenAlex papers per year), claim (text or id; uses, answers, status), question (text or id; verdict answered|partly|open|contested, coverage), questions, link/unlink (from, rel supports|opposes|qualifies|informs|answers|uses|sameas|related|broader, to), revise (new idea version: statement, framing in four parts background|positioning|thesis|novelty (prose, any length), method = prose, claims, concepts, trigger paper|card|supervision|own|data|question, trigger_ref, trigger_note, change, rationale, branch_of), version (id, status current|abandoned), idea (current or id, with history), tag (definition id, attributes), compare (concept id; definitions by attribute), notes (the user's open notes from the Desk), note (id, status done), summary (writes a printable one-page research-summary.html with APA references), task (text, kind read|question|write|check|other, source, about, due; or id with status todo|doing|done), tasks (open tasks), framework (several named frameworks per project, fw=FW2 or the active one: op list|create name,kind conceptual|pipeline,copy|from_version|rename name,kind|rename_node id,label,note|activate|delete|show|add_node id or label,component,x,y|remove_node|move|arrange|add_edge from,to,type,sign,hypothesis,claim,verb|edit_edge|remove_edge|save note|restore id|compare id,with|export; pipelines relate components X1 (modules, data, steps) as well as concepts; edges Claude adds are proposals until the user accepts them), ontology (op show|save|restore|compare|export: SKOS Turtle and Markdown). Adopting concepts and revising the idea only after the user agrees.",
   inputSchema: S({ action: { type: "string", enum: ["show", "concepts", "concept", "define", "definitions", "tag", "compare", "scan", "pulse", "claim", "question", "questions", "link", "unlink", "revise", "version", "idea", "note", "notes", "summary", "task", "tasks", "framework", "ontology", "focus", "undefine"] },
     op: { type: "string", description: "framework: list|create|rename|rename_node|activate|delete|show|add_node|remove_node|move|arrange|add_edge|edit_edge|remove_edge|save|restore|compare|export; ontology: show|save|restore|compare|export" },
     fw: { type: "string", description: "framework id (FW2); default the active one" }, name: { type: "string" }, copy: { type: "string" }, from_version: { type: "string" }, with: { type: "string" },
@@ -1191,7 +1191,7 @@ TOOLS.push({ name: "map", description: "Research map of the active project (rese
     status: { type: "string" }, role: { type: "string" }, use: { type: "string" }, scope: { type: "string" }, note: { type: "string" },
     handle: { type: "string" }, handles: IDS, quote: { type: "string" }, loc: { type: "string" }, kind: { type: "string", description: "define: explicit|implicit; note: thought|supervision|check; framework create/rename: conceptual|pipeline" }, about: { type: "string" }, phrase: { type: "string" }, limit: { type: "integer" },
     uses: IDS, answers: IDS, verdict: { type: "string" }, coverage: { type: "string" }, from: IDS, rel: { type: "string" }, to: IDS,
-    statement: { type: "string" }, framing: { type: "string", description: "prose: the conversation joined, the gap, what the project contributes and where it holds; paragraphs separated by a blank line" }, method: { type: "string", description: "prose: design, data, analysis" },
+    statement: { type: "string" }, background: { type: "string", description: "framing: the context and the conversation the project joins (a paragraph or two)" }, positioning: { type: "string", description: "framing: where the project sits against existing work and the gap it answers" }, thesis: { type: "string", description: "framing: the claim, often one sentence" }, novelty: { type: "string", description: "framing: what is new and why it matters" }, method: { type: "string", description: "prose: design, data, analysis" },
     claims: IDS, concepts: IDS, trigger: { type: "string" }, trigger_ref: { type: "string" }, trigger_note: { type: "string" }, change: { type: "string" }, rationale: { type: "string" }, branch_of: { type: "string" }, project: { type: "string", description: "read another project's map without switching" } }) });
 TOOLS.push({ name: "desk", description: "Link to the Research Desk, a local page (open it in the browser pane) for screening papers, evidence cards, searches and BibTeX export, with live progress during Feynman runs.",
   inputSchema: S({}) });
@@ -1248,7 +1248,7 @@ async function apaRefs(handles) {
   return out;
 }
 // ---------- saved papers: the project's folder of PDFs ----------
-// Cowork reads local PDFs far better than links, so each project keeps its kept papers as files in
+// Cowork reads local PDFs far better than links, so each project keeps its saved papers as files in
 // <project folder>/papers. Zotero PDFs are copied (Zotero itself is only read), open copies are
 // downloaded, and whatever remains becomes one task for the user rather than one task per paper.
 function libraryDir(st = LEDGER.ensure()) {
@@ -1287,15 +1287,19 @@ async function openPdfUrls(p) {
 function libraryState() {
   const st = LEDGER.ensure(), dir = libraryDir(st);
   const files = existsSync(dir) ? readdirSync(dir).filter((f) => /\.pdf$/i.test(f)) : [];
-  const kept = Object.entries(st.papers).filter(([, p]) => p.status === "kept");
+  // Keeping a paper means it is interesting; saving it means it belongs in the folder (usually because
+  // the argument will rest on it). A PDF the user drops in the folder saves that paper too.
   let changed = false;
-  for (const [h, p] of kept) {
+  for (const [h, p] of Object.entries(st.papers)) {
+    if (p.saved === undefined && p.pdf) { p.saved = true; changed = true; }
+    if (p.status === "dropped") continue;
     if (p.pdf && files.includes(p.pdf)) continue;
-    const f = libraryMatch(files, h, p);
-    if (f) { p.pdfFrom = p.pdf === f && p.pdfFrom ? p.pdfFrom : "you"; p.pdf = f; changed = true; }
-    else if (p.pdf) { p.pdf = ""; p.pdfFrom = ""; changed = true; }
+    const f = files.length ? libraryMatch(files.filter((x) => !Object.values(st.papers).some((o) => o !== p && o.pdf === x)), h, p) : null;
+    if (f && (p.saved || ["kept", "maybe"].includes(p.status))) { p.pdfFrom = p.pdf === f && p.pdfFrom ? p.pdfFrom : "you"; p.pdf = f; p.saved = true; changed = true; }
+    else if (p.pdf && !f) { p.pdf = ""; p.pdfFrom = ""; changed = true; }
   }
   if (changed) LEDGER.save();
+  const kept = Object.entries(st.papers).filter(([, p]) => p.saved && p.status !== "dropped");
   return { st, dir, files, kept };
 }
 function libraryTask(missing) {
@@ -1336,14 +1340,14 @@ async function toolPapersFolder(a) {
     ({ st, dir, files, kept } = libraryState());
     const missing = kept.filter(([, p]) => !p.pdf);
     const t = libraryTask(missing);
-    return [`Papers folder: ${dir}`, `${kept.length - missing.length} of ${kept.length} kept papers saved.${log.zotero.length ? ` Copied from Zotero: ${log.zotero.join(" ")}.` : ""}${log.open.length ? ` Downloaded open copies: ${log.open.join(" ")}.` : ""}`,
-      missing.length ? `Not found as open PDFs: ${missing.map(([h]) => h).join(" ")}. They are listed in task ${t} for the user to add (library access or Zotero); files dropped in the folder are picked up by name.` : "Every kept paper is in the folder."].join("\n");
+    return [`Papers folder: ${dir}`, `${kept.length - missing.length} of ${kept.length} saved papers in the folder.${log.zotero.length ? ` Copied from Zotero: ${log.zotero.join(" ")}.` : ""}${log.open.length ? ` Downloaded open copies: ${log.open.join(" ")}.` : ""}`,
+      missing.length ? `Not found as open PDFs: ${missing.map(([h]) => h).join(" ")}. They are listed in task ${t} for the user to add (library access or Zotero); files dropped in the folder are picked up by name.` : "Every saved paper is in the folder."].join("\n");
   }
   if (op === "dir") { mkdirSync(dir, { recursive: true }); return dir; }
   if (op === "file") { const f = String(a.name || ""); if (!/\.pdf$/i.test(f) || f.includes("/") || f.includes("\\") || f.startsWith(".")) throw new Error("bad file name"); const full = join(dir, f); if (!existsSync(full)) throw new Error("no such file"); return full; }
   if (op === "dump") return JSON.stringify({ dir, exists: existsSync(dir), files: files.length, papers: Object.fromEntries(kept.map(([h, p]) => [h, { pdf: p.pdf || "", from: p.pdfFrom || "" }])), extra: files.filter((f) => !kept.some(([, p]) => p.pdf === f)) });
   const missing = kept.filter(([, p]) => !p.pdf);
-  return [`Papers folder: ${dir}${existsSync(dir) ? "" : " (not created yet; op=sync creates and fills it)"}`, `${kept.length - missing.length} of ${kept.length} kept papers saved.`, missing.length ? `Missing: ${missing.map(([h]) => h).join(" ")}` : ""].filter(Boolean).join("\n");
+  return [`Papers folder: ${dir}${existsSync(dir) ? "" : " (not created yet; op=sync creates and fills it)"}`, `${kept.length - missing.length} of ${kept.length} saved papers in the folder.`, missing.length ? `Missing: ${missing.map(([h]) => h).join(" ")}` : ""].filter(Boolean).join("\n");
 }
 function libraryFile(h) { try { const st = LEDGER.ensure(), p = st.papers[String(h).toUpperCase()]; if (p?.pdf) { const f = join(libraryDir(st), p.pdf); if (existsSync(f)) return f; } } catch {} return null; }
 

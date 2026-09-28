@@ -25,57 +25,81 @@ The rule behind everything: **Claude proposes, you decide.** Claude reads, sugge
 
 ## A quick tour
 
+The screenshots come from a small example project built from real papers on human-AI complementarity; the idea itself is only there for illustration. Full-page views of each tab are in [`docs/images/full`](docs/images/full).
+
 ### The idea 💡
 
-Every project starts from an idea, and ideas change. The Idea page opens on the current statement. The framing and the methodology are a few paragraphs of plain prose, and the literature lists the steps of your argument with the evidence for and against each. They stay folded until you need them. Below sits the history: what changed, when, and what prompted it (a paper, a supervision meeting, your own thinking), with the wording differences marked.
+Every project starts from an idea, and ideas change. The Idea page opens on the current statement, with a notes box for thoughts and supervisors' comments that Claude folds into its next proposal.
 
-<p align="center"><img src="docs/images/idea.png" alt="The Idea page" width="85%"></p>
+<p align="center"><img src="docs/images/idea.png" alt="The current idea with its notes" width="75%"></p>
 
-Everything on the page can be edited in place: click the pen, change the text, save. No prompt needed. Your edits become a new version of the idea (edits made on the same day share one), so the history stays honest. A notes box sits right under the idea for thoughts and supervisors' comments, which Claude folds into its next proposal.
+Click the pen next to anything to edit it in place, no prompt needed. Your edits become a new version of the idea (edits made on the same day share one), so the history stays honest.
+
+**Framing** comes in four parts, each as long as it needs to be: the background, where the project sits against existing work, the claim itself (often a single sentence) and what is new about it.
+
+<p align="center"><img src="docs/images/framing.png" alt="The framing in four parts" width="75%"></p>
+
+**The argument** lists its steps, each with a small bar of the evidence for, against and qualifying it. Open one to see the cards behind it, or add a step yourself.
+
+<p align="center"><img src="docs/images/argument.png" alt="The argument with its evidence" width="75%"></p>
+
+**The history** keeps every earlier version with what prompted the change (a paper, a supervision meeting, your own thinking) and the wording differences marked.
+
+<p align="center"><img src="docs/images/history.png" alt="How the idea changed" width="75%"></p>
 
 ### Concepts 📚
 
-Terms that keep coming up in the literature land here as candidates. Adopt, park or drop them. Each concept keeps its definitions verbatim with their source and year, a table comparing what each definition includes, how often the term appears per year, and your own working definition. Rename a concept, add other names for it or remove a definition that does not belong, right there.
+Terms that keep coming up in the literature land here as candidates. Adopt, park or drop them. Each concept keeps your working definition and scope, how often the term appears per year, and a table comparing what each published definition includes.
 
-<p align="center"><img src="docs/images/concepts.png" alt="The concept register" width="85%"></p>
+<p align="center"><img src="docs/images/concept.png" alt="A concept with its definitions compared" width="75%"></p>
 
-### Framework and ontology 🗺️
+The definitions themselves are kept verbatim, with their source, year and where in the paper they appear.
 
-Few arguments rest on a single chain of cause and effect, so a project can hold several frameworks side by side: your main account, a rival explanation, the model a key paper proposes. Drag concepts around, pull an arrow from the handle of one box to another, and say what the link is: influences, moderates, enables, constrains, precedes, part of, a plain association, or a verb of your own. Label arrows as hypotheses (H1, H2…) and point each one to the claim that justifies it. The line style tells you how solid it is: solid when supported, dashed when there is no evidence yet, red when contested. Claude's suggestions arrive as dotted arrows for you to accept or reject.
+<p align="center"><img src="docs/images/definitions.png" alt="Definitions in the literature" width="75%"></p>
 
-<p align="center"><img src="docs/images/framework.png" alt="The conceptual framework" width="85%"></p>
+### Frameworks 🗺️
 
-Point at one of Claude's suggestions and its arrow lights up; click any arrow to see the claim behind it with the evidence for and against. Moderators land on a small junction on the arrow they moderate, and every sign and hypothesis label sits in its own badge.
+Few arguments rest on a single chain of cause and effect, so a project can hold several frameworks side by side: your main account, a rival explanation, the model a key paper proposes. Drag boxes around, pull an arrow from the handle of one to another and say what the link is: influences, moderates, enables, constrains, precedes, part of, a plain association or a verb of your own. Label arrows as hypotheses (H1, H2…). The line style shows how solid each one is: solid when supported, dashed without evidence yet, red when contested. Claude's suggestions arrive dotted, for you to accept or reject.
 
-Save a version whenever the argument moves, then compare any two: new links show in green, dropped ones in red, changed ones in amber. Restore an old version, or branch it into a new framework to try another line of reasoning. Any framework exports as a clean black-and-white figure for your paper.
+<p align="center"><img src="docs/images/framework.png" alt="A conceptual framework" width="85%"></p>
 
-<p align="center"><img src="docs/images/framework-compare.png" alt="Comparing two versions of a framework" width="85%"></p>
+Click an arrow to see the claim behind it and the evidence for and against.
 
-Not every paper is a theory paper. For a method, system or modelling paper, a framework can be a **pipeline**: its boxes are components (a module, a dataset, a step) as well as concepts, connected by what feeds or produces what, laid out top to bottom. For a survey, the working ontology below doubles as the taxonomy.
+<p align="center"><img src="docs/images/edge.png" alt="The evidence behind one arrow" width="85%"></p>
 
-<p align="center"><img src="docs/images/pipeline.png" alt="A pipeline framework for a method paper" width="55%"></p>
+Save a version whenever the argument moves and compare any two: new links in green, dropped ones in red, changed ones in amber. Restore an old version, or branch it into a new framework. Any framework exports as a clean black-and-white figure for your paper.
 
-Underneath, a working ontology places each concept as a kind of, or a part of, another. Rename and redefine concepts in place, move them around the tree, add narrower terms and related links, keep versions, and export the whole thing as SKOS (Turtle) for use elsewhere.
+<p align="center"><img src="docs/images/framework-compare.png" alt="Comparing two versions" width="85%"></p>
+
+Not every paper is a theory paper. For a method, system or modelling paper a framework can be a **pipeline**, whose boxes are components (a module, a dataset, a step) as well as concepts, connected by what feeds or produces what.
+
+<p align="center"><img src="docs/images/pipeline.png" alt="A pipeline for a method paper" width="45%"></p>
+
+### Ontology 🌳
+
+A working ontology places each concept as a kind of, or a part of, another, and links related ones. Click where a concept sits to move it, rename and redefine in place, keep versions, and export the whole thing as SKOS (Turtle). For a survey it doubles as the taxonomy.
 
 <p align="center"><img src="docs/images/ontology.png" alt="The working ontology" width="85%"></p>
 
 ### Tasks ✅
 
-A calm board for what to read, answer, write or check. Drag cards between columns; open one to rename it, change its kind or due date, or add notes. Reading suggestions from Feynman, long comments from your supervisor and questions you put to the literature all end up here. Questions carry their verdict and the positions found.
+A calm board for what to read, answer, write or check. Pick a card up and drop it in another column, or higher up the same one. Reading suggestions from Feynman, long comments from your supervisor and questions you put to the literature all end up here; questions carry their verdict and the positions found.
 
-<p align="center"><img src="docs/images/tasks.png" alt="The task board" width="85%"></p>
+<p align="center"><img src="docs/images/tasks.png" alt="Moving a card on the task board" width="85%"></p>
 
-### Papers
+### Papers 📄
 
-Screen papers into keep, maybe or drop, open their summaries and evidence cards, and export BibTeX with your own Better BibTeX keys. Preprints are matched to their published version automatically, and the ones that were never published are labelled as such.
+Screen papers into keep, maybe or drop, and **save** the ones your argument will rest on. Keeping means a paper is interesting; saving means it belongs in the project. Preprints are matched to their published version, and BibTeX exports with your own Better BibTeX keys.
 
-Claude writes far better from the papers themselves than from links, so every kept paper is saved as a PDF in a **papers** folder inside your project: copied from Zotero when you have it there, downloaded when an open copy exists. Whatever is left becomes a single task ("Add 2 papers to the papers folder"), not one task per paper. Drop the PDFs in the folder under any name and they are matched by title. A tracker shows what is in the folder and what is still missing, and the folder opens in Finder with one click.
+<p align="center"><img src="docs/images/papers.png" alt="Keeping and saving papers" width="75%"></p>
 
-<p align="center"><img src="docs/images/papers.png" alt="The paper list" width="85%"></p>
+Saved papers are gathered as PDFs in a **papers** folder inside your project, because Claude writes far better from the papers themselves than from links. They are copied from Zotero when you have them there and downloaded when an open copy exists. Whatever is left becomes a single task, not one per paper; drop the PDFs in the folder under any name and they are matched by title.
+
+<p align="center"><img src="docs/images/shelf.png" alt="The papers folder and its tracker" width="75%"></p>
 
 ### One page for supervision
 
-A plain, printable summary of the current idea, its framing, the argument with its sources, key concepts, recent changes and open points, with references in APA.
+A plain, printable summary of the current idea, its framing and methodology, the argument with its sources, the framework, key concepts, recent changes and open points, with references in APA.
 
 <p align="center"><img src="docs/images/summary.png" alt="The one-page summary" width="60%"></p>
 
@@ -85,8 +109,6 @@ A plain, printable summary of the current idea, its framing, the argument with i
   <img src="docs/images/idea-dark.png" alt="Dark mode" width="62%">&nbsp;&nbsp;
   <img src="docs/images/mobile.png" alt="Phone width" width="22%">
 </p>
-
-The screenshots show a small example project built from real papers on human-AI complementarity. The idea itself is only there for illustration.
 
 ## How it saves tokens
 
@@ -142,7 +164,7 @@ The full list appears when you run `/feynman:start`. Outside those commands you 
 
 Everything about a project lives in its own folder, readable without the tool:
 
-- `papers/`, the PDFs of your kept papers
+- `papers/`, the PDFs of your saved papers
 - `research-map.json`, the map itself
 - `research-map.md`, a readable copy regenerated on every change
 - `research-summary.html`, `research-framework.svg` and `research-ontology.ttl` when you export them

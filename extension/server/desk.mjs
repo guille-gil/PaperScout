@@ -66,7 +66,7 @@ export function startDesk({ port, cacheDir, callTool, log }) {
         const body = await readBody(req);
         if (!body) return send(res, 400, { error: "bad JSON" });
         const tool = u.pathname.slice(5);
-        const allowed = { session: ["note", "start", "bibtex", "card", "title", "papers"], search: null, code: null, paper: null, map: ["concept", "note", "task", "framework", "ontology", "edit", "claim", "undefine"] };
+        const allowed = { session: ["note", "start", "bibtex", "card", "title", "papers"], search: null, code: null, paper: null, map: ["concept", "note", "task", "task_order", "framework", "ontology", "edit", "claim", "undefine"] };
         if (!(tool in allowed)) return send(res, 404, { error: "unknown action" });
         if (allowed[tool] && !allowed[tool].includes(body.action)) return send(res, 400, { error: "action not allowed" });
         // From the page, the map only takes concept triage and notes.
@@ -89,15 +89,17 @@ export function startDesk({ port, cacheDir, callTool, log }) {
           input = { action: "ontology", op: body.op, id: body.id, with: body.with, note: body.note };
         } else if (tool === "map" && body.action === "edit") {
           input = { action: "edit" };
-          for (const k of ["statement", "framing", "method", "claims"]) if (body[k] !== undefined) input[k] = body[k];
+          for (const k of ["statement", "background", "positioning", "thesis", "novelty", "method", "claims"]) if (body[k] !== undefined) input[k] = body[k];
         } else if (tool === "map" && body.action === "claim") {
           input = { action: "claim" };
           for (const k of ["id", "text", "status"]) if (body[k] !== undefined) input[k] = body[k];
+        } else if (tool === "map" && body.action === "task_order") {
+          input = { action: "task_order", status: body.status, ids: Array.isArray(body.ids) ? body.ids.map(String) : [] };
         } else if (tool === "map" && body.action === "undefine") {
           input = { action: "undefine", id: String(body.id || "") };
         } else if (tool === "session" && body.action === "papers") {
           if (!["show", "sync"].includes(body.op || "show")) return send(res, 400, { error: "action not allowed" });
-          input = { action: "papers", op: body.op || "show" };
+          input = { action: "papers", op: body.op || "show", handles: Array.isArray(body.handles) ? body.handles.map(String).slice(0, 50) : undefined };
         } else if (tool === "map") {
           input = body.id ? { action: "note", id: String(body.id), status: body.status, text: body.text } : { action: "note", text: String(body.text || ""), kind: body.kind, about: body.about || "" };
         }

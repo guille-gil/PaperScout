@@ -2,6 +2,17 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.13.0 (2026-09-28)
+
+### Paper Scout
+- The framing has four parts, each edited on its own: background, positioning, claim and novelty. Earlier framings are carried over.
+- Kept and saved are separate: keeping marks a paper as interesting, saving puts its PDF in the project's papers folder. Only saved papers are fetched, and a PDF dropped in the folder saves its paper.
+- The task board has real cards: pick one up, see where it will land, and drop it in another column or higher up the same one. The order is kept.
+- README screenshots are cropped to one feature each; full-page views are in `docs/images/full`.
+
+### Feynman for Cowork
+- Rules for the four-part framing and for suggesting which papers to save.
+
 ## 0.12.0 (2026-09-28)
 
 ### Paper Scout
