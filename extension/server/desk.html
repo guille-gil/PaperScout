@@ -1006,7 +1006,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
     ev.preventDefault();
     const start = svgPoint(svg, ev), base = { ...activeFw().nodes[h] };
     S.drag = { id: h, p: base, moved: false };
-    const move = (e) => { const p = svgPoint(svg, e); const dx = p.x - start.x, dy = p.y - start.y; if (Math.abs(dx) + Math.abs(dy) > 3) S.drag.moved = true;
+    const move = (e) => { const p = svgPoint(document.querySelector(".canvas svg") || svg, e); const dx = p.x - start.x, dy = p.y - start.y; if (Math.abs(dx) + Math.abs(dy) > 3) S.drag.moved = true;
       const snap = (v) => Math.round(v / 10) * 10;
       S.drag.p = { x: Math.max(NW / 2 + 4, Math.min(FW - NW / 2 - 4, snap(base.x + dx))), y: Math.max(30, snap(base.y + dy)) }; redrawCanvas(); };
     const up = async () => {
@@ -1320,7 +1320,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
   // Dragging with the pointer (mouse, pen or touch): the card lifts, a line shows where it will land,
   // and dropping sets both its column and its place in the column.
   function startTaskDrag(ev, k, card) {
-    if (ev.button !== 0 || ev.target.closest("button, input, select, textarea, a, .tbody")) return;
+    if (ev.button !== 0 || ev.target.closest("button:not(.tt), input, select, textarea, a, .tbody")) return;
     const x0 = ev.clientX, y0 = ev.clientY; let ghost = null, line = null, target = null;
     const r0 = card.getBoundingClientRect();
     const place = (e) => {

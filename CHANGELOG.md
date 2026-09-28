@@ -2,6 +2,13 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.14.1 (2026-09-28)
+
+### Paper Scout
+- Fixed dragging a box on the framework canvas, which could make it jump away from the pointer.
+- Task cards can be picked up by their title as well as by the rest of the card.
+- A short demo at the top of the README.
+
 ## 0.14.0 (2026-09-28)
 
 ### Paper Scout

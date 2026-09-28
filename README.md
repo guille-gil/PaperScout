@@ -8,6 +8,8 @@
   your concepts, your argument and how it changed.
 </p>
 
+<p align="center"><img src="docs/demo.gif" alt="A 30-second tour of the Research Desk" width="100%"></p>
+
 ---
 
 ## What is this? 🧭
