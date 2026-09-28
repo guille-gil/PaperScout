@@ -279,6 +279,17 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
 .shelf-row { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; padding: 6px 0; border-top: 1px solid var(--rule-soft); align-items: baseline; }
 .shelf-row .st { width: 9px; height: 9px; border-radius: 50%; background: var(--good); display: inline-block; }
 .shelf-row .st.missing { background: none; border: 1.5px solid var(--bad); }
+details.drop { margin-top: 2px; }
+details.drop > summary { cursor: pointer; font: 600 11px/1.3 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 4px 0; list-style: none; }
+details.drop > summary::-webkit-details-marker { display: none; }
+details.drop > summary::before { content: "▸"; display: inline-block; margin-right: 6px; transition: transform .15s; }
+details.drop[open] > summary::before { transform: rotate(90deg); }
+details.drop > summary:hover { color: var(--accent); }
+details.drop > div { padding-top: 4px; }
+.paperlink { background: none; border: 0; padding: 0; font: inherit; color: var(--ink); cursor: pointer; text-align: left; text-decoration: underline dotted var(--faint); text-underline-offset: 3px; }
+.paperlink:hover { color: var(--accent); text-decoration-color: var(--accent); }
+.item.flash { animation: flash 1.6s ease-out; }
+@keyframes flash { 0%, 40% { background: var(--mark-soft); } 100% { background: transparent; } }
 .where-list { display: grid; gap: 4px; font-size: 14px; }
 .where { display: grid; grid-template-columns: minmax(120px, max-content) 1fr; gap: 10px; align-items: baseline; }
 @media (max-width: 520px) { .where { grid-template-columns: 1fr; gap: 0; } }
@@ -745,7 +756,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
         el("div", { class: "choice", role: "group", "aria-label": "Decision for " + c.label }, ...opts.map(([s, l, v]) => el("button", { type: "button", "data-v": v, "aria-pressed": String(c.status === s), disabled: !canWrite() || null,
           onclick: () => setConcept(h, c.status === s ? "candidate" : s) }, l)))),
       meta.length || c.pulse ? el("div", { class: "indent" }, el("div", { class: "meta" }, ...meta.map((x) => el("span", {}, x)),
-        c.pulse ? el("button", { class: "linkbtn", type: "button", style: "font-size:inherit;color:inherit;text-decoration:underline dotted", title: "Show these papers", onclick: () => { S.open.add(key); S.open.add("pp:" + h); render(); } }, `${c.pulse.total.toLocaleString("en-GB")} papers`) : null)) : null);
+        c.pulse ? el("button", { class: "linkbtn", type: "button", style: "font-size:inherit;color:inherit;text-decoration:underline dotted", title: "Show these papers", onclick: () => { S.open.add(key); S.open.add("pp:" + h); remember(); render(); } }, `${c.pulse.total.toLocaleString("en-GB")} papers`) : null)) : null);
     if (open) {
       const body = el("div", { class: "body" });
       if (canWrite()) body.append(editableField(h, "label", "Name", c.label, ""));
@@ -773,7 +784,11 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       const rel = m.links.filter((l) => l.from === h && ["sameas", "related"].includes(l.rel));
       if (rel.length) body.append(el("div", { class: "field" }, el("h4", {}, "Related"), el("p", {}, rel.map((l) => `${{ sameas: "Same as", related: "Related to" }[l.rel]} ${conceptLabel(l.to)}`).join("; "))));
       const mine = conceptPapers(h);
-      if (mine.length) body.append(el("div", { class: "field" }, el("h4", {}, `In your papers (${mine.length})`), el("div", { class: "where-list" }, ...mine.map((x) => el("div", { class: "where" }, el("span", {}, x.label), el("span", { class: "missing" }, x.roles.join("; ")))))));
+      if (mine.length) {
+        const dk = "mine:" + h;
+        body.append(el("details", { class: "drop", open: isOpen(dk) || null, ontoggle: keepOpen(dk) }, el("summary", {}, `In your papers (${mine.length})`),
+          el("div", { class: "where-list" }, ...mine.map((x) => el("div", { class: "where" }, el("button", { class: "paperlink", type: "button", title: "Open it in Papers", onclick: () => goPaper(x.h) }, x.label), el("span", { class: "missing" }, x.roles.join("; ")))))));
+      }
       if (c.pulse) body.append(pulseField(h, c));
       if (c.useHistory?.length) body.append(el("div", { class: "field" }, el("h4", {}, "Earlier working definitions"), ...c.useHistory.map((u) => el("p", { class: "missing" }, `${cap(u.text)} (until ${fmtDate(u.until)})`))));
       if (c.note) body.append(el("div", { class: "field" }, el("h4", {}, "Note"), el("p", {}, cap(c.note))));
@@ -789,6 +804,14 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
     }
     return item;
   }
+  // Jump to a paper's entry in the Papers tab, opened.
+  function goPaper(h) {
+    S.tab = "papers"; store.set("tab", "papers");
+    const p = S.data.papers.find((x) => x.h === h);
+    if (p && S.pfilter !== "all" && (S.pfilter === "saved" ? !p.saved : (p.status || "unsorted") !== S.pfilter)) { S.pfilter = "all"; store.set("pfilter", "all"); }
+    S.open.add("p:" + h); render();
+    setTimeout(() => { const e = document.querySelector(`[data-paper="${h}"]`); if (e) { e.scrollIntoView({ block: "center", behavior: "smooth" }); e.classList.add("flash"); setTimeout(() => e.classList.remove("flash"), 1600); } }, 30);
+  }
   // Where the project's own papers touch a concept: its definitions and the evidence for claims that use it.
   function conceptPapers(h) {
     const m = MM(), by = new Map();
@@ -799,7 +822,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       const s = support(l.from);
       for (const [rel, hs] of Object.entries(s)) for (const x of hs) { const [ph, n] = x.split("#"); const c = n ? M().papers[ph]?.cards?.[Number(n) - 1] : null; add(ph, { supports: "evidence for", opposes: "evidence against", qualifies: "qualifies" }[rel] + ` "${clipT(m.claims[l.from]?.text, 50)}"`, c?.l || ""); }
     }
-    return [...by].map(([ph, r]) => ({ label: paperRef(ph).replace(/ \(P\d+\)$/, ""), roles: [...r].map(([what, locs]) => locs.size ? `${what} (${[...locs].join(", ")})` : what) }));
+    return [...by].map(([ph, r]) => ({ h: ph, label: paperRef(ph).replace(/ \(P\d+\)$/, ""), roles: [...r].map(([what, locs]) => locs.size ? `${what} (${[...locs].join(", ")})` : what) }));
   }
   // The papers behind the pulse count, fetched by the Desk itself (no Claude tokens), most cited first.
   function pulseField(h, c) {
@@ -812,25 +835,27 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       render();
     };
     const hl = (text, phrase) => { const i = text.toLowerCase().indexOf(phrase.toLowerCase()); return i < 0 ? [text] : [text.slice(0, i), el("mark", {}, text.slice(i, i + phrase.length)), text.slice(i + phrase.length)]; };
-    const field = el("div", { class: "field" }, el("h4", {}, `Papers per year mentioning "${c.pulse.phrase}"`), spark(c.pulse, true),
-      el("button", { class: "linkbtn", type: "button", style: "margin-top:6px", onclick: () => { if (open) flip(key); else if (data?.works) { S.open.add(key); render(); } else fetchPage(); } },
-        open ? "Hide the papers" : total > 25 ? `Show the most cited of the ${total.toLocaleString("en-GB")} papers` : `Show the ${plural(total, "paper")}`));
+    const drop = el("details", { class: "drop", open: open || null, ontoggle: (e) => { if (e.target.open) { S.open.add(key); if (!S.outputs[key]) fetchPage(); } else S.open.delete(key); remember(); } },
+      el("summary", {}, `Papers mentioning "${c.pulse.phrase}" (${total.toLocaleString("en-GB")})${total > 25 ? ", most cited first" : ""}`));
+    const field = el("div", { class: "field" }, el("h4", {}, `Papers per year mentioning "${c.pulse.phrase}"`), spark(c.pulse, true), drop);
+    const inner = el("div", {}); drop.append(inner);
     if (open && !data) setTimeout(() => fetchPage(), 0);
     if (open && data) {
-      if (data.loading && !data.works) field.append(el("p", { class: "missing" }, "Asking OpenAlex…"));
-      else if (data.error) field.append(el("p", { class: "missing" }, data.error));
+      if (data.loading && !data.works) inner.append(el("p", { class: "missing" }, "Asking OpenAlex…"));
+      else if (data.error) inner.append(el("p", { class: "missing" }, data.error));
       else {
-        field.append(el("div", { class: "pp-list" }, ...data.works.map((w) => {
+        inner.append(el("div", { class: "pp-list" }, ...data.works.map((w) => {
           const url = w.doi ? `https://doi.org/${w.doi}` : w.arxiv ? `https://arxiv.org/abs/${w.arxiv}` : `https://openalex.org/${w.id}`;
-          const screen = w.handle ? el("span", { class: "missing" }, `In your papers as ${w.handle}`) : canWrite() ? el("button", { class: "linkbtn", type: "button", onclick: async (e) => { e.target.disabled = true; try { const hh = await call("session", { action: "screen_oa", id: w.id }); w.handle = String(hh).trim(); banner(`Added to your papers as ${w.handle}, waiting to be screened.`); load({ quiet: true }); } catch (err) { banner(errText(err), true); } render(); } }, "Add to screening") : null;
+          const screen = w.handle ? el("button", { class: "linkbtn", type: "button", onclick: () => goPaper(w.handle) }, `In your papers as ${w.handle}: open it`) : canWrite() ? el("button", { class: "linkbtn", type: "button", onclick: async (e) => { e.target.disabled = true; try { const hh = await call("session", { action: "screen_oa", id: w.id }); w.handle = String(hh).trim(); banner(`Added to your papers as ${w.handle}, waiting to be screened.`); load({ quiet: true }); } catch (err) { banner(errText(err), true); } render(); } }, "Add to screening") : null;
           return el("div", { class: "pp" },
-            el("a", { href: url, target: "_blank", rel: "noopener", class: "pp-t" }, ...hl(w.title, data.phrase)),
+            w.handle ? el("button", { class: "pp-t paperlink", type: "button", title: "Open it in Papers", onclick: () => goPaper(w.handle) }, ...hl(w.title, data.phrase))
+              : el("a", { href: url, target: "_blank", rel: "noopener", class: "pp-t", title: "Open the paper in your browser" }, ...hl(w.title, data.phrase)),
             el("div", { class: "meta" }, ...[who(w.lasts), w.year, w.venue, w.cites != null ? `${w.cites} citations` : ""].filter(Boolean).map((x) => el("span", {}, x))),
             w.where === "title" && !w.snippet ? el("div", { class: "pp-w" }, "In the title") : w.snippet ? el("div", { class: "pp-w" }, w.where === "title" ? "In the title and the abstract: " : "In the abstract: ", ...hl(w.snippet, data.phrase)) : null,
             screen);
         })));
-        if (data.works.length < data.total) field.append(el("button", { class: "linkbtn", type: "button", onclick: () => fetchPage((data.page || 1) + 1) }, data.loading ? "Loading…" : `Show 25 more (${data.works.length} of ${data.total.toLocaleString("en-GB")})`));
-        field.append(el("p", { class: "hint" }, "From OpenAlex, searching titles and abstracts. Fetched by the Desk, so it costs no tokens."));
+        if (data.works.length < data.total) inner.append(el("button", { class: "linkbtn", type: "button", onclick: () => fetchPage((data.page || 1) + 1) }, data.loading ? "Loading…" : `Show 25 more (${data.works.length} of ${data.total.toLocaleString("en-GB")})`));
+        inner.append(el("p", { class: "hint" }, "From OpenAlex, searching titles and abstracts. Fetched by the Desk, so it costs no tokens."));
       }
     }
     return field;
@@ -1321,7 +1346,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
   function paperItem(p) {
     const key = "p:" + p.h; const d = S.data; const open = isOpen(key);
     const opts = [["kept", "Keep", "good"], ["maybe", "Maybe", "warn"], ["dropped", "Drop", "bad"]];
-    const item = el("div", { class: "item" + (!p.status && d.active ? " needs" : "") },
+    const item = el("div", { class: "item" + (!p.status && d.active ? " needs" : ""), "data-paper": p.h },
       el("div", { class: "top" }, chev(open), el("button", { class: "name", type: "button", "aria-expanded": String(open), onclick: () => flip(key) }, p.title || "Untitled"),
         el("div", { class: "pick" }, el("div", { class: "choice", role: "group", "aria-label": "Screening decision" }, ...opts.map(([s, l, v]) => el("button", { type: "button", "data-v": v, "aria-pressed": String(p.status === s), disabled: !d.active || null, onclick: () => mark(p.h, p.status === s ? "clear" : s) }, l))),
           p.status !== "dropped" ? saveBtn(p) : null)),

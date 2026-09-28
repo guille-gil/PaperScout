@@ -2,6 +2,12 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.17.1 (2026-09-28)
+
+### Paper Scout
+- "In your papers" and the list of papers mentioning a concept are dropdowns, closed until you open them.
+- Papers you already have jump to their entry in Papers, opened and highlighted; the others open in your browser.
+
 ## 0.17.0 (2026-09-28)
 
 ### Paper Scout
