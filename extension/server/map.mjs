@@ -95,6 +95,7 @@ export class ResearchMap {
     this.m.fwActive ||= this.m.frameworks[0].id;
     this.m.ontologyVersions ||= [];
     this.m.components ||= {}; this.m.next.X ||= 1;
+    for (const t of Object.values(this.m.tasks)) if (t.source === "feynman") t.source = "workflow";
     // Questions recorded before tasks existed get their task, so they show on the board.
     for (const [q, x] of Object.entries(this.m.questions)) if (!Object.values(this.m.tasks).some((t) => t.about === q))
       this.m.tasks[`T${this.m.next.T++}`] = { title: x.text, kind: "question", source: "claude", about: q, status: x.verdict ? "done" : "todo", due: "", note: "", created: x.created || today(), done: x.verdict ? x.updated || x.created || "" : "" };
@@ -330,7 +331,7 @@ export class ResearchMap {
       return `Wrote ${file}. Open it in a browser and print, or save as PDF.`;
     }
     if (action === "task") {
-      const KINDS = ["read", "question", "write", "check", "other"], SRC = ["you", "supervisor", "feynman", "claude"], ST = ["todo", "doing", "done"];
+      const KINDS = ["read", "question", "write", "check", "other"], SRC = ["you", "supervisor", "workflow", "claude"], ST = ["todo", "doing", "done"];
       let t = a.id ? String(a.id).toUpperCase() : null;
       if (t && !m.tasks[t]) throw new Error(`unknown task ${t}`);
       if (!t) {

@@ -194,7 +194,7 @@ export class Ledger {
     const st = this.ensure();
     if (action === "dump") {
       // Structured snapshot for the Research Desk page. project= reads another session read-only,
-      // without switching the active one (so a running Feynman session is never disturbed).
+      // without switching the active one (so a running research session is never disturbed).
       let snap = st, active = true;
       if (a.project && this.file(a.project) !== this.file(st.name)) {
         const f = this.file(a.project);

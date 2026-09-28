@@ -1,0 +1,18 @@
+{
+  "name": "paperscout",
+  "version": "0.8.0",
+  "description": "Paper Scout research mode for Cowork: evidence-first research workflows (literature review, deep research, review, audit, compare, draft, summarise, replicate) on top of the Paper Scout extension. Adapted from Feynman by Companion, Inc.",
+  "author": {
+    "name": "Guillermo Gil de Avalle"
+  },
+  "keywords": [
+    "research",
+    "literature review",
+    "papers",
+    "semantic scholar",
+    "arxiv"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/guille-gil/paper-scout",
+  "repository": "https://github.com/guille-gil/paper-scout"
+}

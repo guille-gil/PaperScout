@@ -305,6 +305,26 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
 .place { background: none; border: 0; padding: 0; font: inherit; color: var(--ink-2); cursor: pointer; text-align: left; border-bottom: 1px dotted var(--faint); }
 .place:hover { color: var(--accent); border-color: var(--accent); }
 
+/* Commands sheet */
+.sheet-back { position: fixed; inset: 0; background: rgba(20, 28, 48, .28); z-index: 60; display: flex; justify-content: flex-end; }
+.sheet { background: var(--paper); width: min(560px, 100%); height: 100%; overflow-y: auto; padding: 22px 22px 40px; box-shadow: -12px 0 32px rgba(20, 28, 48, .18); display: grid; gap: 14px; align-content: start; }
+.sheet h2 { margin: 0; font: 500 24px/1.2 var(--serif); display: flex; justify-content: space-between; align-items: center; }
+.sheet h3 { margin: 10px 0 0; font: 600 11px/1.3 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.cmds { display: grid; gap: 0; }
+.cmd { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 8px 0; border-bottom: 1px solid var(--rule-soft); }
+.cmd code { font: 13.5px var(--mono); color: var(--accent); }
+.cmd .copy { font-size: 12px; }
+.cmd p { grid-column: 1 / -1; margin: 0; font-size: 13.5px; color: var(--ink-2); }
+.says { margin: 0; padding-left: 18px; font-size: 14px; color: var(--ink-2); } .says li { margin: 3px 0; }
+.use-row { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 5px 0; border-bottom: 1px solid var(--rule-soft); }
+.use-row b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.use-big { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.use-big div { background: var(--leaf); border: 1px solid var(--rule); border-radius: 10px; padding: 10px 12px; }
+.use-big b { display: block; font: 500 22px/1.2 var(--serif); }
+.use-big span { font-size: 12px; color: var(--faint); }
+.usage-chip { font-size: 12.5px; color: var(--faint); background: none; border: 0; padding: 0; cursor: pointer; }
+.usage-chip:hover { color: var(--accent); }
+
 /* Tasks */
 .quick { display: grid; gap: 8px; margin-bottom: 22px; }
 .quick .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -342,6 +362,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       <span class="brand"><span class="logo" aria-hidden="true"><svg viewBox="4 4 132 162"><path d="M20 10 H100 L130 40 V150 Q130 160 120 160 H20 Q10 160 10 150 V20 Q10 10 20 10 Z" fill="var(--leaf)" stroke="var(--ink)" stroke-width="9" stroke-linejoin="round"/><path d="M100 10 V32 Q100 40 108 40 H130" fill="none" stroke="var(--ink)" stroke-width="9" stroke-linejoin="round"/><path d="M32 132 C 52 110, 40 92, 62 82 S 92 70, 96 58" fill="none" stroke="var(--accent)" stroke-width="9" stroke-linecap="round" stroke-dasharray="1 15"/><circle cx="98" cy="56" r="13" fill="var(--mark)" stroke="var(--ink)" stroke-width="5"/></svg></span><span id="wordmark">Paper <i>Scout</i></span></span>
       <span class="controls">
         <label class="switch"><span>Project</span><select id="project" aria-label="Switch project"></select></label>
+        <button class="icon" id="help" type="button" title="Commands and usage" aria-haspopup="dialog">Commands</button>
         <button class="icon" id="live" type="button" aria-pressed="false" title="Follow changes live"><span class="dot"></span>Live</button>
         <button class="icon" id="refresh" type="button" title="Refresh" aria-label="Refresh">&#8635;</button>
       </span>
@@ -351,6 +372,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
   </header>
   <div id="banner"></div>
   <main id="main"></main>
+  <div id="sheet"></div>
   <footer class="credit">Developed by Guillermo Gil de Avalle.</footer>
 </div>
 
@@ -522,7 +544,8 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       setTimeout(() => { inp.focus(); inp.select(); }, 0);
     } else {
       const pen = el("button", { class: "pen", type: "button", title: "Rename the project", "aria-label": "Rename the project", onclick: () => { S.editTitle = true; render(); } }); pen.innerHTML = PEN;
-      line.replaceChildren(el("span", { class: "ptitle" }, title), d.active ? pen : null, el("span", { class: "updated" }, upd));
+      line.replaceChildren(el("span", { class: "ptitle" }, title), d.active ? pen : null, el("span", { class: "updated" }, upd),
+        d.usage ? el("button", { class: "usage-chip", type: "button", title: "Estimated tokens Paper Scout has added to Claude's context today. Click for details.", onclick: () => openSheet("usage") }, `· ≈${kTok(d.usage.today.tokens)} tokens today`) : null);
     }
   }
 
@@ -535,7 +558,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
     $("#tabs").replaceChildren(...TABS.map(([k, label]) => el("button", { role: "tab", type: "button", "aria-selected": String(S.tab === k), onclick: () => { S.tab = k; store.set("tab", k); render(); } },
       label, n[k] ? el("span", { class: "badge", title: k === "tasks" ? "In progress" : "Waiting for your decision" }, n[k]) : null)));
     if (!d.active) {
-      $("#banner").replaceChildren(el("div", { class: "notice" }, `Viewing "${cap(d.title || d.name)}" only. Claude and Feynman are working in "${d.activeName}".`,
+      $("#banner").replaceChildren(el("div", { class: "notice" }, `Viewing "${cap(d.title || d.name)}" only. Claude is working in "${d.activeName}".`,
         el("div", { class: "actions" }, S.pendingSwitch === d.name
           ? [el("button", { class: "btn primary", type: "button", onclick: () => switchTo(d.name) }, "Switch the working project"), el("button", { class: "btn", type: "button", onclick: () => { S.pendingSwitch = null; render(); } }, "Cancel")]
           : el("button", { class: "btn", type: "button", onclick: () => { S.pendingSwitch = d.name; render(); } }, "Work in this project instead"))));
@@ -1170,7 +1193,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
     out.push(el("div", { class: "filters" }, ...[["unsorted", "To screen"], ["kept", "Kept"], ["saved", "Saved"], ["maybe", "Maybe"], ["dropped", "Dropped"], ["all", "All"]].map(([k, l]) =>
       el("button", { type: "button", "aria-pressed": String(S.pfilter === k), onclick: () => { S.pfilter = k; store.set("pfilter", k); render(); } }, l, " ", el("b", {}, c[k])))));
     const ps = d.papers.filter((p) => S.pfilter === "all" || (S.pfilter === "saved" ? p.saved && p.status !== "dropped" : (p.status || "unsorted") === S.pfilter)).sort((a, b) => Number(b.h.slice(1)) - Number(a.h.slice(1)));
-    if (!ps.length) out.push(el("p", { class: "empty" }, d.papers.length ? "Nothing here." : "No papers yet. Search above, or start Feynman on this project."));
+    if (!ps.length) out.push(el("p", { class: "empty" }, d.papers.length ? "Nothing here." : "No papers yet. Search above, or run /paperscout:start on this project."));
     else out.push(el("div", { class: "items" }, ...ps.slice(0, 150).map(paperItem)));
     out.push(el("details", { class: "plain", open: isOpen("log") || null, ontoggle: keepOpen("log") },
       el("summary", {}, `Search log (${d.queries.length}) and BibTeX export`),
@@ -1263,7 +1286,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
 
   // ----- Tasks -----
   const TKIND = { read: "Read", question: "Question", write: "Write", check: "Check", other: "Other" };
-  const TSRC = { you: "From you", supervisor: "From your supervisor", feynman: "From Feynman", claude: "From Claude" };
+  const TSRC = { you: "From you", supervisor: "From your supervisor", workflow: "From a workflow", feynman: "From a workflow", claude: "From Claude" };
   function viewTasks() {
     const m = MM(); if (!m) return [el("p", { class: "empty" }, "No research map yet.")];
     const out = [el("p", { class: "lede" }, "What to read, answer, write or check. Questions put to the literature live here too, with what came back.")];
@@ -1378,6 +1401,51 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
     }
     return card;
   }
+
+  // ---------- commands and usage ----------
+  const kTok = (n) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(n || 0);
+  const CMDS = [
+    ["/paperscout:start", "Turn on research mode for this task, connect the project and get the Desk link."],
+    ["/paperscout:ask <question>", "A quick answer from the literature: verdict, positions, debate and a reading list, saved to the map."],
+    ["/paperscout:lit <topic>", "A literature review of a topic, lab or author, with citations and provenance."],
+    ["/paperscout:deepresearch <question>", "A thorough, cited brief; you approve the plan first."],
+    ["/paperscout:review <draft or paper>", "A tough internal critique with severity-graded objections."],
+    ["/paperscout:compare <sources>", "A matrix of where sources agree and disagree."],
+    ["/paperscout:summarize <paper>", "One source digested section by section."],
+    ["/paperscout:draft <topic>", "A paper-style draft built on the map's idea, claims and evidence."],
+    ["/paperscout:audit <paper + repo>", "Does the code match the paper's claims?"],
+    ["/paperscout:replicate <paper>", "A replication plan, and optionally a run."],
+    ["/paperscout:recipe <task>", "Ranked, result-backed training or evaluation recipes."],
+    ["/paperscout:autoresearch <idea>", "A bounded experiment loop against a benchmark."],
+    ["/paperscout:eli5 <paper or idea>", "A plain-language explanation."],
+    ["/paperscout:log", "A session log before stopping."],
+    ["/paperscout:end", "Leave research mode."],
+  ];
+  const SAYS = ["Add this as a concept", "Record this as the new version of the idea", "What supports K2?", "Propose a framework from the current claims", "Save the papers my argument rests on", "Fetch the saved papers into the folder", "Turn my supervisor's comments into tasks"];
+  function openSheet(focus) { S.sheet = focus || "commands"; renderSheet(); }
+  function closeSheet() { S.sheet = null; renderSheet(); $("#help").focus(); }
+  function renderSheet() {
+    const host = $("#sheet");
+    if (!S.sheet) { host.replaceChildren(); return; }
+    const u = S.data?.usage;
+    const copy = (t) => { const c = t.split(" <")[0]; try { navigator.clipboard.writeText(c); banner(`Copied ${c}`); } catch {} };
+    const rows = (o) => Object.entries(o?.byTool || {}).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => el("div", { class: "use-row" }, el("span", {}, k === "(tool definitions)" ? "Tool definitions (once per conversation)" : k), el("b", {}, "≈" + kTok(v))));
+    const sheet = el("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": "Commands and usage" },
+      el("h2", {}, "Commands", el("button", { class: "icon", type: "button", "aria-label": "Close", onclick: closeSheet }, "✕")),
+      el("p", { class: "missing" }, "Type these in a Cowork task, or copy one from here."),
+      el("div", { class: "cmds" }, ...CMDS.map(([c, d]) => el("div", { class: "cmd" }, el("code", {}, c), el("button", { class: "linkbtn copy", type: "button", onclick: () => copy(c) }, "Copy"), el("p", {}, d)))),
+      el("h3", {}, "Or just say"),
+      el("ul", { class: "says" }, ...SAYS.map((x) => el("li", {}, `"${x}"`))),
+      el("h3", { id: "usage-h" }, "Claude usage"),
+      u ? el("div", { class: "use-big" }, el("div", {}, el("b", {}, "≈" + kTok(u.today.tokens)), el("span", {}, `today, ${plural(u.today.calls || 0, "call")}`)), el("div", {}, el("b", {}, "≈" + kTok(u.week)), el("span", {}, "last 7 days")), el("div", {}, el("b", {}, "≈" + kTok(u.project.tokens)), el("span", {}, "this project"))) : el("p", { class: "missing" }, "No usage recorded yet."),
+      u && Object.keys(u.today.byTool || {}).length ? el("div", {}, ...rows(u.today)) : null,
+      el("p", { class: "hint" }, "What Paper Scout added to Claude's context: tool results and the tool definitions, estimated at four characters a token. Claude's own reading, thinking and writing come on top. Anything you do on this page costs nothing."));
+    const back = el("div", { class: "sheet-back", onclick: (e) => { if (e.target === back) closeSheet(); } }, sheet);
+    host.replaceChildren(back);
+    setTimeout(() => { if (S.sheet === "usage") $("#usage-h")?.scrollIntoView({ block: "start" }); else sheet.querySelector("button")?.focus(); }, 0);
+  }
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.sheet) closeSheet(); });
+  $("#help").addEventListener("click", () => openSheet("commands"));
 
   // ---------- global actions ----------
   async function switchTo(name) { try { await call("session", { action: "start", name }); S.pendingSwitch = null; S.viewing = slug(name); await load(); } catch (e) { banner(errText(e), true); } }

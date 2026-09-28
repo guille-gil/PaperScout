@@ -19,7 +19,7 @@ The repository has two parts that work together:
 | Part | What it does |
 | --- | --- |
 | **Paper Scout** (`extension/`) | A desktop extension for Claude. It searches and reads papers with as few tokens as possible, keeps a ledger of everything you screened, and stores a **research map** (concepts, framework, the versioned idea, tasks) as plain files in your project folder. It also serves the **Research Desk**, a local page where you make the decisions. |
-| **Feynman for Cowork** (`feynman/`) | A plugin with Feynman's research workflows (literature review, deep research, peer review, drafting and more) adapted to Claude's Cowork mode, with explicit start and end commands so it only runs when you want it. |
+| **Paper Scout for Cowork** (`plugin/`) | A plugin with the research workflows (literature review, deep research, peer review, drafting and more), adapted from Feynman to Claude's Cowork mode, with explicit start and end commands so it only runs when you want it. |
 
 The rule behind everything: **Claude proposes, you decide.** Claude reads, suggests concepts, links evidence and drafts. Adopting a concept, accepting a relationship or rewriting your idea always waits for you.
 
@@ -83,7 +83,7 @@ A working ontology places each concept as a kind of, or a part of, another, and 
 
 ### Tasks ✅
 
-A calm board for what to read, answer, write or check. Pick a card up and drop it in another column, or higher up the same one. Reading suggestions from Feynman, long comments from your supervisor and questions you put to the literature all end up here; questions carry their verdict and the positions found.
+A calm board for what to read, answer, write or check. Pick a card up and drop it in another column, or higher up the same one. Reading suggestions from the workflows, long comments from your supervisor and questions you put to the literature all end up here; questions carry their verdict and the positions found.
 
 <p align="center"><img src="docs/images/tasks.png" alt="Moving a card on the task board" width="85%"></p>
 
@@ -116,6 +116,10 @@ Paper Scout gives every paper a short handle (`P12`) and shows it as a single li
 
 The research map grows with the project, so Claude never reads it whole. It starts from a few lines of overview and then pulls only what the step needs: one concept, claim or question with its immediate neighbours and the evidence one step away. The readable Markdown copy is for you. Anything you change on the Research Desk costs no tokens at all.
 
+In numbers, on the example project: the tool definitions come to about 2,600 tokens per conversation, starting research mode loads about 2,800 tokens of rules (the detailed map rules, about 1,500 more, load only when Claude first writes to the map), an overview of the map costs about 160 and one concept in focus about 700. The **Commands** panel on the Desk keeps a running estimate of what Paper Scout has added to Claude's context, today, over the week and per project.
+
+<p align="center"><img src="docs/images/usage.png" alt="The usage estimate on the Research Desk" width="55%"></p>
+
 ## Installation
 
 You need the [Claude desktop app](https://claude.ai/download) and Node.js 18 or newer.
@@ -137,28 +141,30 @@ Open the resulting `paper-scout.mcpb` with the Claude desktop app. In its settin
 | Zotero data folder | So Paper Scout can read your library |
 | Library proxy | A link prefix for paywalled papers (it defaults to the University of Groningen; change it to your own) |
 
-**2. Add the Feynman plugin**
+**2. Add the plugin**
 
 ```bash
-cd feynman
-zip -r ../feynman.plugin .
+cd plugin
+zip -r ../paperscout.plugin .
 ```
 
-Open `feynman.plugin` with the Claude desktop app, then type `/feynman:start` in a Cowork task.
+Open `paperscout.plugin` with the Claude desktop app, then type `/paperscout:start` in a Cowork task. If you used an earlier version, the plugin was called `feynman`: remove it once the new one is installed.
 
 ## Using it
 
 | Command | What happens |
 | --- | --- |
-| `/feynman:start` | Turns on research mode for the task, connects your project and gives you the Research Desk link |
-| `/feynman:ask <question>` | A quick answer from the literature: verdict, positions, debate and a reading list |
-| `/feynman:lit <topic>` | A full literature review with citations and provenance |
-| `/feynman:deepresearch <question>` | A thorough, cited research brief |
-| `/feynman:review <paper or draft>` | A tough peer review |
-| `/feynman:draft <topic>` | A paper-style draft built on your research map |
-| `/feynman:end` | Leaves research mode |
+| `/paperscout:start` | Turns on research mode for the task, connects your project and gives you the Research Desk link |
+| `/paperscout:ask <question>` | A quick answer from the literature: verdict, positions, debate and a reading list |
+| `/paperscout:lit <topic>` | A full literature review with citations and provenance |
+| `/paperscout:deepresearch <question>` | A thorough, cited research brief |
+| `/paperscout:review <paper or draft>` | A tough peer review |
+| `/paperscout:draft <topic>` | A paper-style draft built on your research map |
+| `/paperscout:end` | Leaves research mode |
 
-The full list appears when you run `/feynman:start`. Outside those commands you can simply talk to Claude: "add this as a concept", "record this as the new version of the idea", "what supports claim K2?".
+The full list appears when you run `/paperscout:start`, and the **Commands** button on the Research Desk keeps it one click away.
+
+<p align="center"><img src="docs/images/commands.png" alt="The Commands panel on the Research Desk" width="55%"></p> Outside those commands you can simply talk to Claude: "add this as a concept", "record this as the new version of the idea", "what supports claim K2?".
 
 ## Where your data lives
 
@@ -173,8 +179,8 @@ Paper metadata and full texts are cached on your computer. Nothing is sent anywh
 
 ## Credits 🙏
 
-- **[Feynman](https://github.com/companion-inc/feynman)** by Companion, Inc. is the foundation of this project. Its research workflows, subagents and working rules were adapted here for Claude's Cowork mode. Feynman is released under the MIT licence; see [`feynman/NOTICE`](feynman/NOTICE).
-- **[Claude](https://claude.ai)** by Anthropic is the environment all of this runs in. Paper Scout is a desktop extension (MCP server) and Feynman for Cowork is a plugin of skills and subagents on top of the Claude desktop app.
+- **[Feynman](https://github.com/companion-inc/feynman)** by Companion, Inc. is the foundation of this project. Its research workflows, subagents and working rules were adapted here for Claude's Cowork mode. Feynman is released under the MIT licence; see [`plugin/NOTICE`](plugin/NOTICE).
+- **[Claude](https://claude.ai)** by Anthropic is the environment all of this runs in. Paper Scout is a desktop extension (MCP server) and Paper Scout for Cowork is a plugin of skills and subagents on top of the Claude desktop app.
 - Paper data comes from [Semantic Scholar](https://www.semanticscholar.org), [OpenAlex](https://openalex.org), [arXiv](https://arxiv.org), [Unpaywall](https://unpaywall.org) and your own [Zotero](https://www.zotero.org) library.
 - The research map borrows from discourse graphs (Chan et al., 2024), concept definition methods (Podsakoff, MacKenzie and Podsakoff, 2016; Suddaby, 2010) and W3C SKOS.
 - Typefaces: [Newsreader](https://fonts.google.com/specimen/Newsreader) and [Inter Tight](https://fonts.google.com/specimen/Inter+Tight).

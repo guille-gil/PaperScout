@@ -15,7 +15,7 @@ import { verifyDraft } from "./verify.mjs";
 import { startDesk } from "./desk.mjs";
 import { ResearchMap, definitionHits } from "./map.mjs";
 
-const VERSION = "0.13.0";
+const VERSION = "0.14.0";
 const PARSER_VERSION = "3";
 const S2 = "https://api.semanticscholar.org/graph/v1";
 const S2_REC = "https://api.semanticscholar.org/recommendations/v1";
@@ -1181,19 +1181,19 @@ async function toolReadAll(a) {
   if (a.sections?.length) return toolRead(a);
   return toolOutline(a);
 }
-TOOLS.push({ name: "map", description: "Research map of the active project (research-map.json and .md in the project folder): concepts with definitions and pulse, questions, claims linked to evidence cards, and the versioned idea. Actions: show (overview and warnings), focus (id C3|K2|RQ1|X1: one item with its neighbours and nearby evidence; prefer it to reading the whole map), concepts, concept (id or label; alt, related, broader, sameas, status candidate|adopted|parked|dropped, role core|lens|context, use = working definition, scope, attributes, note), define (id or label, handle P12, quote, loc, kind), undefine (id D3), definitions, scan (id; explicit definition sentences in kept papers or handles), pulse (id; OpenAlex papers per year), claim (text or id; uses, answers, status), question (text or id; verdict answered|partly|open|contested, coverage), questions, link/unlink (from, rel supports|opposes|qualifies|informs|answers|uses|sameas|related|broader, to), revise (new idea version: statement, framing in four parts background|positioning|thesis|novelty (prose, any length), method = prose, claims, concepts, trigger paper|card|supervision|own|data|question, trigger_ref, trigger_note, change, rationale, branch_of), version (id, status current|abandoned), idea (current or id, with history), tag (definition id, attributes), compare (concept id; definitions by attribute), notes (the user's open notes from the Desk), note (id, status done), summary (writes a printable one-page research-summary.html with APA references), task (text, kind read|question|write|check|other, source, about, due; or id with status todo|doing|done), tasks (open tasks), framework (several named frameworks per project, fw=FW2 or the active one: op list|create name,kind conceptual|pipeline,copy|from_version|rename name,kind|rename_node id,label,note|activate|delete|show|add_node id or label,component,x,y|remove_node|move|arrange|add_edge from,to,type,sign,hypothesis,claim,verb|edit_edge|remove_edge|save note|restore id|compare id,with|export; pipelines relate components X1 (modules, data, steps) as well as concepts; edges Claude adds are proposals until the user accepts them), ontology (op show|save|restore|compare|export: SKOS Turtle and Markdown). Adopting concepts and revising the idea only after the user agrees.",
+TOOLS.push({ name: "map", description: "The project's research map (research-map.json in the project folder; never read the file). Read: show (overview, warnings), focus id=C3|K2|RQ1|X1 (one item, its neighbours, nearby evidence), idea, concepts, definitions, questions, notes, tasks. Write: concept (id|label; status, role, use, scope, alt, related, parent, parent_rel), define (handle, quote, loc) / undefine, tag + compare (definition attributes), scan, pulse, claim (text|id; uses, answers, status), question (verdict, coverage), link|unlink (from, rel, to), revise (statement, background, positioning, thesis, novelty, method, claims, concepts, trigger, change), version, note, task, summary, framework (op + fw), ontology (op). Adopting concepts, revising the idea and accepting relationships only after the user agrees",
   inputSchema: S({ action: { type: "string", enum: ["show", "concepts", "concept", "define", "definitions", "tag", "compare", "scan", "pulse", "claim", "question", "questions", "link", "unlink", "revise", "version", "idea", "note", "notes", "summary", "task", "tasks", "framework", "ontology", "focus", "undefine"] },
     op: { type: "string", description: "framework: list|create|rename|rename_node|activate|delete|show|add_node|remove_node|move|arrange|add_edge|edit_edge|remove_edge|save|restore|compare|export; ontology: show|save|restore|compare|export" },
     fw: { type: "string", description: "framework id (FW2); default the active one" }, name: { type: "string" }, copy: { type: "string" }, from_version: { type: "string" }, with: { type: "string" },
-    type: { type: "string", enum: ["influences", "moderates", "associated", "enables", "constrains", "precedes", "partof", "feeds", "produces", "custom"] }, component: { type: "boolean", description: "add_node: a component (module, dataset, step), not a concept" }, verb: { type: "string" }, hypothesis: { type: "string", description: "edge label such as H1" }, unrelated: IDS, sign: { type: "string", enum: ["+", "-", ""] }, claim: { type: "string" },
-    source: { type: "string", enum: ["you", "supervisor", "feynman", "claude"] }, parent: { type: "string", description: "concept: place under this concept in the ontology (empty removes)" }, parent_rel: { type: "string", enum: ["broader", "partof"] }, due: { type: "string" }, x: { type: "number" }, y: { type: "number" },
+    type: { type: "string", enum: ["influences", "moderates", "associated", "enables", "constrains", "precedes", "partof", "feeds", "produces", "custom"] }, component: { type: "boolean" }, verb: { type: "string" }, hypothesis: { type: "string" }, unrelated: IDS, sign: { type: "string", enum: ["+", "-", ""] }, claim: { type: "string" },
+    source: { type: "string", enum: ["you", "supervisor", "workflow", "claude"] }, parent: { type: "string" }, parent_rel: { type: "string", enum: ["broader", "partof"] }, due: { type: "string" }, x: { type: "number" }, y: { type: "number" },
     id: { type: "string" }, label: { type: "string" }, text: { type: "string" }, alt: IDS, related: IDS, broader: IDS, sameas: IDS, attributes: { type: "array", items: { type: "string" } },
     status: { type: "string" }, role: { type: "string" }, use: { type: "string" }, scope: { type: "string" }, note: { type: "string" },
-    handle: { type: "string" }, handles: IDS, quote: { type: "string" }, loc: { type: "string" }, kind: { type: "string", description: "define: explicit|implicit; note: thought|supervision|check; framework create/rename: conceptual|pipeline" }, about: { type: "string" }, phrase: { type: "string" }, limit: { type: "integer" },
+    handle: { type: "string" }, handles: IDS, quote: { type: "string" }, loc: { type: "string" }, kind: { type: "string" }, about: { type: "string" }, phrase: { type: "string" }, limit: { type: "integer" },
     uses: IDS, answers: IDS, verdict: { type: "string" }, coverage: { type: "string" }, from: IDS, rel: { type: "string" }, to: IDS,
-    statement: { type: "string" }, background: { type: "string", description: "framing: the context and the conversation the project joins (a paragraph or two)" }, positioning: { type: "string", description: "framing: where the project sits against existing work and the gap it answers" }, thesis: { type: "string", description: "framing: the claim, often one sentence" }, novelty: { type: "string", description: "framing: what is new and why it matters" }, method: { type: "string", description: "prose: design, data, analysis" },
-    claims: IDS, concepts: IDS, trigger: { type: "string" }, trigger_ref: { type: "string" }, trigger_note: { type: "string" }, change: { type: "string" }, rationale: { type: "string" }, branch_of: { type: "string" }, project: { type: "string", description: "read another project's map without switching" } }) });
-TOOLS.push({ name: "desk", description: "Link to the Research Desk, a local page (open it in the browser pane) for screening papers, evidence cards, searches and BibTeX export, with live progress during Feynman runs.",
+    statement: { type: "string" }, background: { type: "string" }, positioning: { type: "string" }, thesis: { type: "string" }, novelty: { type: "string" }, method: { type: "string" },
+    claims: IDS, concepts: IDS, trigger: { type: "string" }, trigger_ref: { type: "string" }, trigger_note: { type: "string" }, change: { type: "string" }, rationale: { type: "string" }, branch_of: { type: "string" }, project: { type: "string" } }) });
+TOOLS.push({ name: "desk", description: "Link to the Research Desk, a local page (open it in the browser pane) for screening papers, evidence cards, searches and BibTeX export, with live progress during research workflows.",
   inputSchema: S({}) });
 // Read-only hints let the Claude app run these without asking each time; they only record what was seen.
 for (const t of TOOLS) if (["search", "paper", "graph", "read", "code", "desk", "verify"].includes(t.name)) t.annotations = { readOnlyHint: true };
@@ -1357,7 +1357,7 @@ const MAP = new ResearchMap({ ledger: LEDGER, cacheDir: CFG.cacheDir, pulse: con
 const HANDLERS = {
   desk: () => DESK?.running ? `Research Desk: ${DESK.url}\nOpen it in the browser pane. Projects, screening, cards and searches update live.` : "The Research Desk is not running (its port may be taken by another copy of Paper Scout).",
   search: toolSearchAll, paper: toolPaperAll, graph: toolGraph, read: toolReadAll, code: toolCode,
-  session: async (a) => (await refreshSurnames(), a.action === "papers" ? toolPapersFolder(a) : a.action === "bibtex" ? toolBibtex(a) : a.action === "roles" ? (await fillCitations(), LEDGER.tool(a)) : LEDGER.tool(a)),
+  session: async (a) => (await refreshSurnames(), a.action === "usage" ? usageSummary() : a.action === "papers" ? toolPapersFolder(a) : a.action === "bibtex" ? toolBibtex(a) : a.action === "roles" ? (await fillCitations(), LEDGER.tool(a)) : LEDGER.tool(a)),
   verify: (a) => verifyDraft(a, { LEDGER, http, oaUrl, loadFullText, xmlText, ARXIV_API }),
   map: async (a) => (await refreshSurnames(), a.action === "snapshot" ? JSON.stringify(MAP.snapshot(a.project)) : a.action === "summary_html" ? (MAP.load(a.project), MAP.summaryHtml(await MAP.references())) : MAP.tool(a)),
 };
@@ -1380,12 +1380,13 @@ async function handle(msg) {
       return send({ jsonrpc: "2.0", id, result: { protocolVersion: params?.protocolVersion || "2025-06-18", capabilities: { tools: { listChanged: false } }, serverInfo: { name: "paper-scout", version: VERSION }, instructions: INSTRUCTIONS } });
     }
     if (method === "ping") return send({ jsonrpc: "2.0", id, result: {} });
-    if (method === "tools/list") return send({ jsonrpc: "2.0", id, result: { tools: TOOLS } });
+    if (method === "tools/list") { recordUsage("(tool definitions)", null, JSON.stringify(TOOLS)); return send({ jsonrpc: "2.0", id, result: { tools: TOOLS } }); }
     if (method === "resources/list") return send({ jsonrpc: "2.0", id, result: { resources: [] } });
     if (method === "prompts/list") return send({ jsonrpc: "2.0", id, result: { prompts: [] } });
     if (method === "tools/call") {
       try {
         const out = await callTool(params?.name, params?.arguments);
+        recordUsage(params?.name, params?.arguments, out);
         return send({ jsonrpc: "2.0", id, result: typeof out === "string" ? { content: [{ type: "text", text: out }] } : out });
       } catch (e) {
         return send({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: `Error: ${e.message}` }], isError: true } });
@@ -1395,6 +1396,32 @@ async function handle(msg) {
   } catch (e) {
     send({ jsonrpc: "2.0", id, error: { code: -32603, message: e.message } });
   }
+}
+
+// ---------- usage: what Paper Scout adds to Claude's context ----------
+// Only calls from Claude count (the Research Desk calls the same tools for free). Tokens are estimated
+// at four characters each; images at about a thousand. Kept in the cache folder, not in the project.
+const USAGE_FILE = join(CFG.cacheDir, "usage.json");
+let USAGE = null;
+function usageLoad() { if (!USAGE) { try { USAGE = JSON.parse(readFileSync(USAGE_FILE, "utf8")); } catch { USAGE = {}; } USAGE.days ||= {}; USAGE.projects ||= {}; } return USAGE; }
+function recordUsage(name, args, out) {
+  try {
+    const u = usageLoad();
+    let n = Math.round(JSON.stringify(args || {}).length / 4);
+    if (typeof out === "string") n += Math.round(out.length / 4);
+    else for (const c of out?.content || []) n += c.type === "image" ? 1000 : Math.round(String(c.text || "").length / 4);
+    const day = new Date().toISOString().slice(0, 10), proj = LEDGER.ensure().name;
+    const key = [name, args?.action, args?.op].filter(Boolean).join(" ");
+    const add = (o) => { o.tokens = (o.tokens || 0) + n; o.calls = (o.calls || 0) + 1; o.byTool ||= {}; o.byTool[key] = (o.byTool[key] || 0) + n; };
+    add(u.days[day] ||= {}); add(u.projects[proj] ||= {});
+    for (const d of Object.keys(u.days).sort().slice(0, -60)) delete u.days[d];
+    writeFileSync(USAGE_FILE, JSON.stringify(u));
+  } catch {}
+}
+function usageSummary() {
+  const u = usageLoad(), day = new Date().toISOString().slice(0, 10), proj = LEDGER.ensure().name;
+  const week = Object.entries(u.days).filter(([d]) => (Date.now() - Date.parse(d)) / 86400000 < 7).reduce((n, [, x]) => n + (x.tokens || 0), 0);
+  return JSON.stringify({ today: u.days[day] || { tokens: 0, calls: 0, byTool: {} }, week, project: u.projects[proj] || { tokens: 0, calls: 0, byTool: {} }, projectName: proj });
 }
 
 let DESK = null;

@@ -2,6 +2,17 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.14.0 (2026-09-28)
+
+### Paper Scout
+- A Commands panel on the Research Desk lists every command with a line on what it does, plus things you can simply say.
+- Usage estimate: Paper Scout records roughly how many tokens it adds to Claude's context (tool results and tool definitions), shown in the header and, per tool, in the Commands panel.
+- Shorter `map` tool definition; the tool definitions now come to about 2,600 tokens.
+
+### Paper Scout for Cowork
+- The plugin is now called `paperscout`, so its commands are `/paperscout:start`, `/paperscout:lit` and so on. Remove the old `feynman` plugin after installing it.
+- The rules loaded at start are about half as long: the detailed research map rules load only when Claude first writes to the map.
+
 ## 0.13.0 (2026-09-28)
 
 ### Paper Scout
@@ -10,7 +21,7 @@ All notable changes are recorded here. Versions follow the Paper Scout extension
 - The task board has real cards: pick one up, see where it will land, and drop it in another column or higher up the same one. The order is kept.
 - README screenshots are cropped to one feature each; full-page views are in `docs/images/full`.
 
-### Feynman for Cowork
+### Plugin (then called Feynman for Cowork)
 - Rules for the four-part framing and for suggesting which papers to save.
 
 ## 0.12.0 (2026-09-28)
@@ -25,7 +36,7 @@ All notable changes are recorded here. Versions follow the Paper Scout extension
 - Tasks move between columns by drag and drop.
 - `map action=focus` returns one concept, claim or question with its neighbours, so Claude reads a small part of a large map instead of all of it.
 
-### Feynman for Cowork
+### Plugin (then called Feynman for Cowork)
 - Rules for keeping the map out of the context, prose framing, respecting the user's own edits, the papers folder, pipelines and the ontology.
 
 ## 0.11.0 (2026-09-27)
@@ -41,7 +52,7 @@ First public release.
 - One-page supervision summary with APA references.
 - Research Desk, a local page with Idea, Concepts, Papers and Tasks views.
 
-### Feynman for Cowork
+### Plugin (then called Feynman for Cowork)
 - Research workflows adapted from Feynman, with `/feynman:start` and `/feynman:end`.
 - `/feynman:ask` for quick, scoped answers from the literature.
 - Rules for working with the research map, tasks and the framework.

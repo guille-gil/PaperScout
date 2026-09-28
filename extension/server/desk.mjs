@@ -1,5 +1,5 @@
 // Research Desk: a small local web page served by Paper Scout on 127.0.0.1, so the user can screen papers,
-// read evidence cards and follow Feynman runs in a browser pane without spending Claude tokens.
+// read evidence cards and follow research runs in a browser pane without spending Claude tokens.
 // Access needs a random token in the URL, so other web pages cannot drive it.
 
 import { createServer } from "node:http";
@@ -57,6 +57,7 @@ export function startDesk({ port, cacheDir, callTool, log }) {
       if (req.method === "GET" && u.pathname === "/api/desk") {
         const project = u.searchParams.get("project") || undefined;
         const dump = JSON.parse(await callTool("session", { action: "dump", project }));
+        try { dump.usage = JSON.parse(await callTool("session", { action: "usage" })); } catch {}
         if (dump.active) try { dump.library = JSON.parse(await callTool("session", { action: "papers", op: "dump" })); } catch {}
         try { dump.map = JSON.parse(await callTool("map", { action: "snapshot", project })); }
         catch (e) { dump.map = null; dump.mapError = e.message || String(e); }
