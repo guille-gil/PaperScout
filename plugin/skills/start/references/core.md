@@ -31,7 +31,7 @@ If the Paper Scout tools are missing, say so once and continue with web search a
 The map (`research-map.json` in the project folder, shown on the Research Desk) holds concepts, definitions, claims, questions, the versioned idea, notes, tasks, frameworks and the ontology.
 
 - **Keep it out of the context.** Never read `research-map.json` or `research-map.md`. Start with `map action=show`, then pull only what the step needs: `map action=focus id=C3` (or K2, RQ1, X1), `idea`, `tasks`, `notes`, `definitions id=C3`, `framework op=show`.
-- **Claude proposes, the user decides.** Never adopt or drop a concept, write an idea version, accept a relationship, restore or delete without the user's yes in this conversation. The user edits on the Desk too (trigger `edit`); build on their wording rather than rewriting it.
+- **Claude proposes, the user decides.** Apart from seeding a new, empty project at start (see the start skill), never adopt or drop a concept, write an idea version, accept a relationship, restore or delete without the user's yes in this conversation. The user edits on the Desk too (trigger `edit`); build on their wording rather than rewriting it.
 - **Code.** When `map action=show` lists linked code and a question touches the method, implementation or results, run `map action=repo op=brief` once, then read only the files needed (the folder must be connected in Cowork; if it is not, ask the user to connect it). Never change the repository unless asked. When the user mentions a repository for this project, offer to link it with `op=add path=...`.
 - **Before the first map write of a task** (anything beyond the reads above), read `map-rules.md` in this folder once.
 

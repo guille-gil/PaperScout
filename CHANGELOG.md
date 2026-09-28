@@ -2,6 +2,16 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.16.0 (2026-09-28)
+
+### Paper Scout
+- The extension has its icon.
+- The Research Desk follows the project Claude is working in, without asking you to switch; choosing another project from the menu still pins your view to it.
+
+### Paper Scout for Cowork
+- `/paperscout:start` opens the Research Desk in the built-in browser pane by itself instead of handing you a link.
+- On a new project with material in its folder (a proposal, a draft, notes), start seeds the Desk straight away: a first draft of the idea, framing and method, candidate concepts and reading tasks, all editable.
+
 ## 0.15.0 (2026-09-28)
 
 ### Paper Scout

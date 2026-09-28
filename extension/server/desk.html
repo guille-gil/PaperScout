@@ -428,7 +428,9 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
   async function load({ quiet = false } = {}) {
     if (S.busy) return; S.busy = true;
     try {
-      const d = await call("desk", S.viewing ? { project: S.viewing } : {});
+      let d = await call("desk", S.viewing ? { project: S.viewing } : {});
+      // Follow the project Claude is working in, unless you chose to look at another one yourself.
+      if (!d.active && !S.pinned) { S.viewing = null; d = await call("desk", {}); }
       S.data = d; if (!S.viewing) S.viewing = slug(d.name);
       banner(null); render();
     } catch (e) { if (!quiet) banner(errText(e), true); }
@@ -1477,8 +1479,8 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
   $("#help").addEventListener("click", () => openSheet("commands"));
 
   // ---------- global actions ----------
-  async function switchTo(name) { try { await call("session", { action: "start", name }); S.pendingSwitch = null; S.viewing = slug(name); await load(); } catch (e) { banner(errText(e), true); } }
-  $("#project").addEventListener("change", (e) => { S.viewing = e.target.value; S.pendingSwitch = null; S.fw = { sel: null, pending: null, view: null, compare: null, adding: null, renaming: false, creating: false, linking: false }; load(); });
+  async function switchTo(name) { try { await call("session", { action: "start", name }); S.pendingSwitch = null; S.pinned = false; S.viewing = slug(name); await load(); } catch (e) { banner(errText(e), true); } }
+  $("#project").addEventListener("change", (e) => { S.viewing = e.target.value; S.pinned = e.target.value !== slug(S.data?.activeName); S.pendingSwitch = null; S.fw = { sel: null, pending: null, view: null, compare: null, adding: null, renaming: false, creating: false, linking: false }; load(); });
   $("#refresh").addEventListener("click", () => load());
   $("#live").addEventListener("click", () => { S.live = !S.live; $("#live").classList.toggle("on", S.live); $("#live").setAttribute("aria-pressed", String(S.live)); schedule(); if (S.live) load({ quiet: true }); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden && S.live) load({ quiet: true }); });

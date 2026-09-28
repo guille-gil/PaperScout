@@ -15,7 +15,7 @@ import { verifyDraft } from "./verify.mjs";
 import { startDesk } from "./desk.mjs";
 import { ResearchMap, definitionHits } from "./map.mjs";
 
-const VERSION = "0.15.0";
+const VERSION = "0.16.0";
 const PARSER_VERSION = "3";
 const S2 = "https://api.semanticscholar.org/graph/v1";
 const S2_REC = "https://api.semanticscholar.org/recommendations/v1";
@@ -1193,7 +1193,7 @@ TOOLS.push({ name: "map", description: "The project's research map (research-map
     uses: IDS, answers: IDS, verdict: { type: "string" }, coverage: { type: "string" }, from: IDS, rel: { type: "string" }, to: IDS,
     statement: { type: "string" }, background: { type: "string" }, positioning: { type: "string" }, thesis: { type: "string" }, novelty: { type: "string" }, method: { type: "string" },
     claims: IDS, concepts: IDS, trigger: { type: "string" }, trigger_ref: { type: "string" }, trigger_note: { type: "string" }, change: { type: "string" }, rationale: { type: "string" }, branch_of: { type: "string" }, path: { type: "string" }, url: { type: "string" }, project: { type: "string" } }) });
-TOOLS.push({ name: "desk", description: "Link to the Research Desk, a local page (open it in the browser pane) for screening papers, evidence cards, searches and BibTeX export, with live progress during research workflows.",
+TOOLS.push({ name: "desk", description: "Link to the Research Desk, the local page where the user sees and edits the project (idea, concepts, frameworks, papers, tasks). Open it in the built-in browser pane without asking.",
   inputSchema: S({}) });
 // Read-only hints let the Claude app run these without asking each time; they only record what was seen.
 for (const t of TOOLS) if (["search", "paper", "graph", "read", "code", "desk", "verify"].includes(t.name)) t.annotations = { readOnlyHint: true };
@@ -1355,9 +1355,9 @@ const MAP = new ResearchMap({ ledger: LEDGER, cacheDir: CFG.cacheDir, pulse: con
   scan: async (h, terms) => definitionHits(await loadFullText(h), terms) });
 
 const HANDLERS = {
-  desk: () => DESK?.running ? `Research Desk: ${DESK.url}\nOpen it in the browser pane. Projects, screening, cards and searches update live.` : "The Research Desk is not running (its port may be taken by another copy of Paper Scout).",
+  desk: () => DESK?.running ? `Research Desk: ${DESK.url}\nOpen it now in the built-in browser pane (preview_start with this URL); do not ask first. It follows the active project and updates live.` : "The Research Desk is not running (its port may be taken by another copy of Paper Scout).",
   search: toolSearchAll, paper: toolPaperAll, graph: toolGraph, read: toolReadAll, code: toolCode,
-  session: async (a) => (await refreshSurnames(), a.action === "usage" ? usageSummary() : a.action === "papers" ? toolPapersFolder(a) : a.action === "bibtex" ? toolBibtex(a) : a.action === "roles" ? (await fillCitations(), LEDGER.tool(a)) : LEDGER.tool(a)),
+  session: async (a) => (await refreshSurnames(), a.action === "usage" ? usageSummary() : a.action === "papers" ? toolPapersFolder(a) : a.action === "bibtex" ? toolBibtex(a) : a.action === "start" ? LEDGER.tool(a) + (DESK?.running ? `\nResearch Desk: ${DESK.url} (open it in the browser pane now)` : "") : a.action === "roles" ? (await fillCitations(), LEDGER.tool(a)) : LEDGER.tool(a)),
   verify: (a) => verifyDraft(a, { LEDGER, http, oaUrl, loadFullText, xmlText, ARXIV_API }),
   map: async (a) => (await refreshSurnames(), a.action === "snapshot" ? JSON.stringify(MAP.snapshot(a.project)) : a.action === "summary_html" ? (MAP.load(a.project), MAP.summaryHtml(await MAP.references())) : MAP.tool(a)),
 };
