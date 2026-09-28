@@ -1,5 +1,5 @@
 // Research map: one project's concepts, definitions, questions, claims and versioned idea, tied to the
-// ledger's papers (P12) and evidence cards (P12#3). Stored as research-map.json in the project folder,
+// ledger's papers (P12) and evidence cards (P12#3). Stored as notes/research-map.json in the project folder,
 // with a readable research-map.md regenerated on every change. Claude proposes; the user decides.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync } from "node:fs";
@@ -67,13 +67,27 @@ function blank(project) {
     concepts: {}, definitions: {}, questions: {}, claims: {}, versions: [], links: [], notes: {} };
 }
 
+// The map and its exports live in <project folder>/notes. Maps kept at the top of the folder by earlier
+// versions are moved there the first time the project is opened (a rename, nothing is copied or lost).
+const MAP_FILES = /^(research-map\.(json|md)|research-summary\.html|research-framework(-fw\d+)?\.svg|research-ontology\.(ttl|md))$/;
+function notesFile(folder) {
+  const dir = join(folder, "notes"), file = join(dir, "research-map.json");
+  try {
+    if (!existsSync(file) && existsSync(join(folder, "research-map.json"))) {
+      mkdirSync(dir, { recursive: true });
+      for (const f of readdirSync(folder)) if (MAP_FILES.test(f) && !existsSync(join(dir, f))) renameSync(join(folder, f), join(dir, f));
+    }
+  } catch {}
+  return file;
+}
+
 export class ResearchMap {
   // ctx: { ledger, cacheDir, pulse(label) -> {total, years, earliest}, scan(handle, terms) -> [{loc, text}] }
   constructor(ctx) { this.ctx = ctx; }
 
   path() {
     const st = this.ctx.ledger.ensure();
-    if (st.folder) return { file: join(st.folder, "research-map.json"), inFolder: true };
+    if (st.folder) return { file: notesFile(st.folder), inFolder: true };
     return { file: join(this.ctx.cacheDir, "maps", st.name.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase() + ".json"), inFolder: false };
   }
 
@@ -83,7 +97,7 @@ export class ResearchMap {
     if (project && project.toLowerCase() !== st.name.toLowerCase()) {
       const other = this.ctx.ledger.peek(project);
       if (!other) throw new Error(`no project named "${project}"`);
-      file = other.folder ? join(other.folder, "research-map.json") : join(this.ctx.cacheDir, "maps", other.name.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase() + ".json");
+      file = other.folder ? notesFile(other.folder) : join(this.ctx.cacheDir, "maps", other.name.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase() + ".json");
       this.readOnly = true;
     } else { file = this.path().file; this.readOnly = false; }
     this.file = file;

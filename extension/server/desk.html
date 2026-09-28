@@ -703,7 +703,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       })));
     }
     const parts = (M().file || "").split("/");
-    out.push(el("div", { class: "foot", title: M().file || "" }, `A readable copy is kept as research-map.md in ${parts.at(-2) || "the project folder"}.`));
+    out.push(el("div", { class: "foot", title: M().file || "" }, parts.at(-2) === "notes" ? `A readable copy is kept as notes/research-map.md in ${parts.at(-3) || "the project folder"}.` : `A readable copy is kept as research-map.md in ${parts.at(-2) || "the project folder"}.`));
     return out;
   }
 

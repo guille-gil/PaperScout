@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "paper-scout",
   "display_name": "Paper Scout",
-  "version": "0.17.1",
+  "version": "0.18.0",
   "icon": "icon.png",
   "description": "A field notebook for academic literature research: token-lean paper search and reading across your Zotero library (read-only), Semantic Scholar, arXiv and OpenAlex.",
   "long_description": "Compact one-line search results, TLDR-first paper details, citation snowballing, recommendations, author lookup, and section-level reading of open full text (arXiv HTML, open-access PDFs, or local PDFs). Everything is cached on disk so repeated lookups cost nothing. Keeps a research map in your project folder (concepts, versioned conceptual frameworks, a working ontology, the versioned idea, tasks) and serves the Research Desk, a local page on your Mac (127.0.0.1) to work with it.",

@@ -2,6 +2,11 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.18.0 (2026-09-28)
+
+### Paper Scout
+- The research map and its exports (summary, figures, ontology) live in `notes/` inside the project folder. Maps kept at the top of the folder by earlier versions are moved there the first time the project is opened.
+
 ## 0.17.1 (2026-09-28)
 
 ### Paper Scout

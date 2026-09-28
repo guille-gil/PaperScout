@@ -15,7 +15,7 @@ import { verifyDraft } from "./verify.mjs";
 import { startDesk } from "./desk.mjs";
 import { ResearchMap, definitionHits } from "./map.mjs";
 
-const VERSION = "0.17.1";
+const VERSION = "0.18.0";
 const PARSER_VERSION = "3";
 const S2 = "https://api.semanticscholar.org/graph/v1";
 const S2_REC = "https://api.semanticscholar.org/recommendations/v1";
@@ -1181,7 +1181,7 @@ async function toolReadAll(a) {
   if (a.sections?.length) return toolRead(a);
   return toolOutline(a);
 }
-TOOLS.push({ name: "map", description: "The project's research map (research-map.json in the project folder; never read the file). Read: show (overview, warnings), focus id=C3|K2|RQ1|X1 (one item, its neighbours, nearby evidence), idea, concepts, definitions, questions, notes, tasks. Write: concept (id|label; status, role, use, scope, alt, related, parent, parent_rel), define (handle, quote, loc) / undefine, tag + compare (definition attributes), scan, pulse, claim (text|id; uses, answers, status), question (verdict, coverage), link|unlink (from, rel, to), revise (statement, background, positioning, thesis, novelty, method, claims, concepts, trigger, change), version, note, task, summary, framework (op + fw), ontology (op), repo (code linked to the project: op list|add path,label,role|remove|brief = short overview on demand). Adopting concepts, revising the idea and accepting relationships only after the user agrees",
+TOOLS.push({ name: "map", description: "The project's research map (notes/research-map.json in the project folder; never read the file). Read: show (overview, warnings), focus id=C3|K2|RQ1|X1 (one item, its neighbours, nearby evidence), idea, concepts, definitions, questions, notes, tasks. Write: concept (id|label; status, role, use, scope, alt, related, parent, parent_rel), define (handle, quote, loc) / undefine, tag + compare (definition attributes), scan, pulse, claim (text|id; uses, answers, status), question (verdict, coverage), link|unlink (from, rel, to), revise (statement, background, positioning, thesis, novelty, method, claims, concepts, trigger, change), version, note, task, summary, framework (op + fw), ontology (op), repo (code linked to the project: op list|add path,label,role|remove|brief = short overview on demand). Adopting concepts, revising the idea and accepting relationships only after the user agrees",
   inputSchema: S({ action: { type: "string", enum: ["show", "concepts", "concept", "define", "definitions", "tag", "compare", "scan", "pulse", "claim", "question", "questions", "link", "unlink", "revise", "version", "idea", "note", "notes", "summary", "task", "tasks", "framework", "ontology", "focus", "undefine", "repo"] },
     op: { type: "string", description: "framework: list|create|rename|rename_node|activate|delete|show|add_node|remove_node|move|arrange|add_edge|edit_edge|remove_edge|save|restore|compare|export; ontology: show|save|restore|compare|export" },
     fw: { type: "string", description: "framework id (FW2); default the active one" }, name: { type: "string" }, copy: { type: "string" }, from_version: { type: "string" }, with: { type: "string" },

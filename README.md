@@ -179,9 +179,9 @@ The full list appears when you run `/paperscout:start`, and the **Commands** but
 Everything about a project lives in its own folder, readable without the tool:
 
 - `papers/`, the PDFs of your saved papers
-- `research-map.json`, the map itself
-- `research-map.md`, a readable copy regenerated on every change
-- `research-summary.html`, `research-framework.svg` and `research-ontology.ttl` when you export them
+- `notes/research-map.json`, the map itself
+- `notes/research-map.md`, a readable copy regenerated on every change
+- `notes/research-summary.html`, `notes/research-framework.svg` and `notes/research-ontology.ttl` when you export them
 
 Paper metadata and full texts are cached on your computer. Nothing is sent anywhere except the lookups to the public scholarly APIs.
 
