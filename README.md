@@ -48,6 +48,10 @@ Click the pen next to anything to edit it in place, no prompt needed. Your edits
 
 <p align="center"><img src="docs/images/argument.png" alt="The argument with its evidence" width="75%"></p>
 
+**Code.** If a repository sits behind the project (built before, during or after the writing), link its folder. Claude then knows where the code lives and reads it only when a question touches it, starting from a short overview of the layout, recent commits and the README.
+
+<p align="center"><img src="docs/images/code.png" alt="A repository linked to the project" width="75%"></p>
+
 **The history** keeps every earlier version with what prompted the change (a paper, a supervision meeting, your own thinking) and the wording differences marked.
 
 <p align="center"><img src="docs/images/history.png" alt="How the idea changed" width="75%"></p>

@@ -2,8 +2,10 @@
 // ledger's papers (P12) and evidence cards (P12#3). Stored as research-map.json in the project folder,
 // with a readable research-map.md regenerated on every change. Claude proposes; the user decides.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync } from "node:fs";
+import { join, dirname, basename, resolve as resolvePath } from "node:path";
+import { execFileSync } from "node:child_process";
+import { homedir } from "node:os";
 
 const oneLine = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 const clip = (s, n) => { s = oneLine(s); return s.length <= n ? s : s.slice(0, n).replace(/\s+\S*$/, "") + "…"; };
@@ -240,6 +242,7 @@ export class ResearchMap {
         cur ? `Idea ${cur.v}: ${cur.statement}` : "No idea version yet (map action=revise writes v1, after the user agrees).",
         `Concepts: ${count("adopted")} adopted, ${count("candidate")} candidate, ${count("parked")} parked, ${count("dropped")} dropped. Definitions ${Object.keys(m.definitions).length}. Claims ${Object.keys(m.claims).length}. Questions ${Object.keys(m.questions).length}. Versions ${m.versions.length}.`,
         ...this.flags().map((f) => `! ${f}`),
+        (m.repos || []).length ? `Code: ${m.repos.map((r) => `${r.label} (${r.path})`).join("; ")} (map action=repo op=brief for an overview, on demand)` : "",
         Object.values(m.notes).some((n) => n.status === "open") ? `Open notes from the user: ${Object.entries(m.notes).filter(([, n]) => n.status === "open").map(([k]) => k).join(" ")} (map action=notes)` : ""].filter(Boolean).join("\n");
     }
     if (action === "concepts") {
@@ -520,6 +523,7 @@ export class ResearchMap {
       delete m.definitions[d]; this.save(); return `Removed ${d}.`;
     }
     if (action === "focus") return this.focus(a);
+    if (action === "repo") return this.repoOp(a);
     if (action === "version") {
       const v = m.versions.find((x) => x.v === String(a.id || "").toLowerCase());
       if (!v) throw new Error(`unknown version ${a.id}`);
@@ -582,6 +586,61 @@ export class ResearchMap {
       if (inf.length) out.push(`Informs: ${inf.slice(0, 6).join("; ")}`);
     } else throw new Error("focus works on concepts, components, claims and questions");
     return out.join("\n");
+  }
+  // ---------- code linked to the project ----------
+  // A project often has a repository behind it (built before, during or after the writing). The map keeps
+  // where it is; Claude asks for a short overview only when a question touches the code. Read only.
+  repoOp(a) {
+    const m = this.m, op = a.op || "list";
+    m.repos ||= [];
+    const find = (ref) => { const r = oneLine(ref); const i = /^\d+$/.test(r) ? Number(r) - 1 : m.repos.findIndex((x) => x.label.toLowerCase() === r.toLowerCase() || x.path === r); if (i < 0 || !m.repos[i]) throw new Error(`no linked repository "${r}"; linked: ${m.repos.map((x) => x.label).join(", ") || "none"}`); return m.repos[i]; };
+    const git = (dir, args) => { try { return execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return ""; } };
+    if (op === "list") return m.repos.length ? m.repos.map((r, i) => `${i + 1}. ${r.label}: ${r.path}${r.role ? ` (${r.role})` : ""}${r.url ? ` ${r.url}` : ""}`).join("\n") : "No code linked to this project.";
+    if (op === "add") {
+      const raw = oneLine(a.path || a.id); if (!raw) throw new Error("repo add needs path (a folder on this Mac)");
+      const dir = resolvePath(raw.replace(/^~(?=\/|$)/, homedir()));
+      if (!existsSync(dir) || !statSync(dir).isDirectory()) throw new Error(`folder ${dir} does not exist on this Mac`);
+      if (m.repos.some((r) => r.path === dir)) return `${dir} is already linked.`;
+      const url = oneLine(a.url) || git(dir, ["remote", "get-url", "origin"]).replace(/\.git$/, "").replace(/^git@github\.com:/, "https://github.com/");
+      m.repos.push({ path: dir, label: oneLine(a.label) || basename(dir), role: oneLine(a.role || a.note), url, added: today() });
+      this.save(); return `Linked ${m.repos.at(-1).label} (${dir}).`;
+    }
+    if (op === "remove") { const r = find(a.id || a.label || a.path); m.repos = m.repos.filter((x) => x !== r); this.save(); return `Unlinked ${r.label}; nothing was deleted.`; }
+    if (op === "edit") { const r = find(a.id || a.path); if (a.label !== undefined && oneLine(a.label)) r.label = oneLine(a.label); if (a.role !== undefined) r.role = oneLine(a.role); this.save(); return `${r.label}: ${r.path}${r.role ? ` (${r.role})` : ""}`; }
+    if (op === "brief") {
+      const r = find(a.id || a.label || (m.repos.length === 1 ? "1" : ""));
+      if (!existsSync(r.path)) return `${r.label}: ${r.path} is not there any more (moved or renamed?). Update it with op=remove and op=add.`;
+      const SKIP = new Set([".git", "node_modules", "__pycache__", ".venv", "venv", "env", ".idea", ".vscode", "dist", "build", ".ipynb_checkpoints", ".DS_Store", ".mypy_cache", ".pytest_cache", "wandb", "mlruns"]);
+      const lines = [], exts = {};
+      const walk = (d, depth, pre) => {
+        let ents = []; try { ents = readdirSync(d, { withFileTypes: true }); } catch { return; }
+        ents = ents.filter((e) => !SKIP.has(e.name) && !e.name.startsWith(".")).sort((x, y) => (y.isDirectory() - x.isDirectory()) || x.name.localeCompare(y.name));
+        let shownFiles = 0, hidden = 0;
+        for (const e of ents) {
+          if (e.isDirectory()) {
+            let n = 0; try { n = readdirSync(join(d, e.name)).length; } catch {}
+            if (depth < 2 && lines.length < 45) lines.push(`${pre}${e.name}/ (${n})`);
+            if (depth < 4) walk(join(d, e.name), depth + 1, pre + "  ");
+          } else {
+            const x = (e.name.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase(); if (x) exts[x] = (exts[x] || 0) + 1;
+            // All top-level files; a few per folder one level down; counts only below that.
+            if (depth === 0 || (depth === 1 && shownFiles < 4)) { if (lines.length < 45) { lines.push(`${pre}${e.name}`); shownFiles++; } }
+            else if (depth === 1) hidden++;
+          }
+        }
+        if (hidden && lines.length < 45) lines.push(`${pre}+${hidden} more files`);
+      };
+      walk(r.path, 0, "  ");
+      const readme = ["README.md", "readme.md", "README.rst", "README.txt", "README"].map((f) => join(r.path, f)).find((f) => existsSync(f));
+      const head = readme ? readFileSync(readme, "utf8").replace(/<[^>]+>/g, "").split("\n").filter((l) => l.trim() && !/^\s*(!\[|\[!\[|---+\s*$)/.test(l)).slice(0, 25).map((l) => clip(l, 160)).join("\n") : "";
+      const log = git(r.path, ["log", "-6", "--format=%ad %s", "--date=short"]);
+      const branch = git(r.path, ["rev-parse", "--abbrev-ref", "HEAD"]);
+      const langs = Object.entries(exts).sort((x, y) => y[1] - x[1]).slice(0, 6).map(([k, v]) => `${k} ${v}`).join(", ");
+      return [`${r.label}: ${r.path}${r.role ? ` (${r.role})` : ""}${r.url ? ` ${r.url}` : ""}`, branch ? `Branch ${branch}.` : "Not a git repository.", langs ? `Files by type: ${langs}.` : "",
+        log ? `Recent commits:\n${log.split("\n").map((l) => "  " + clip(l, 110)).join("\n")}` : "", `Layout:\n${lines.join("\n")}${lines.length >= 45 ? "\n  ..." : ""}`,
+        head ? `README (start):\n${head}` : "No README.", "Read specific files with the device tools or the Read tool when needed; never modify the repository unless the user asks."].filter(Boolean).join("\n");
+    }
+    throw new Error("repo op: list, add (path, label, role), edit, remove, brief");
   }
   ontologyAncestors(c, seen = []) {
     const up = this.m.links.filter((l) => l.from === c && ["broader", "partof"].includes(l.rel)).map((l) => l.to);
@@ -980,6 +1039,7 @@ p { margin: 0; }
     const refs = (s) => String(s || "").replace(/\bP\d+\b(?!#)/g, (h) => this.paperLabel(h));
     L.push(`# Research map: ${m.project}`, "", `Updated ${(m.updated || "").slice(0, 10)}. Generated by Paper Scout from research-map.json; edit through Claude or the Research Desk, not here.`, "");
     const cur = this.current();
+    if ((m.repos || []).length) L.push("## Code", "", ...m.repos.map((r) => `- ${r.label}: \`${r.path}\`${r.role ? ` (${r.role})` : ""}${r.url ? ` ${r.url}` : ""}`), "");
     L.push("## Current idea", "");
     if (!cur) L.push("No version yet.", "");
     else {

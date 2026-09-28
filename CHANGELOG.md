@@ -2,6 +2,14 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.15.0 (2026-09-28)
+
+### Paper Scout
+- Link code to a project: a Code section on the Idea page keeps the folders of the project's repositories and opens them in Finder. `map action=repo op=brief` gives Claude a short overview (layout, recent commits, README) only when a question needs it. Read only.
+
+### Paper Scout for Cowork
+- Rule for using linked code on demand and offering to link a repository when one is mentioned.
+
 ## 0.14.1 (2026-09-28)
 
 ### Paper Scout

@@ -49,7 +49,11 @@ export function startDesk({ port, cacheDir, callTool, log }) {
         return res.end(readFileSync(full));
       }
       if (req.method === "POST" && u.pathname === "/api/open-folder") {
-        const dir = await callTool("session", { action: "papers", op: "dir" });
+        // The papers folder, or one of the project's linked repositories (only those, never an arbitrary path).
+        const which = Number(u.searchParams.get("repo") || 0);
+        let dir;
+        if (which) { const snap = JSON.parse(await callTool("map", { action: "snapshot" })); dir = snap.map?.repos?.[which - 1]?.path; if (!dir) return send(res, 404, { error: "no such repository" }); }
+        else dir = await callTool("session", { action: "papers", op: "dir" });
         const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
         try { spawn(cmd, [dir], { detached: true, stdio: "ignore" }).unref(); } catch {}
         return send(res, 200, { text: dir });
@@ -67,7 +71,7 @@ export function startDesk({ port, cacheDir, callTool, log }) {
         const body = await readBody(req);
         if (!body) return send(res, 400, { error: "bad JSON" });
         const tool = u.pathname.slice(5);
-        const allowed = { session: ["note", "start", "bibtex", "card", "title", "papers"], search: null, code: null, paper: null, map: ["concept", "note", "task", "task_order", "framework", "ontology", "edit", "claim", "undefine"] };
+        const allowed = { session: ["note", "start", "bibtex", "card", "title", "papers"], search: null, code: null, paper: null, map: ["concept", "note", "task", "task_order", "framework", "ontology", "edit", "claim", "undefine", "repo"] };
         if (!(tool in allowed)) return send(res, 404, { error: "unknown action" });
         if (allowed[tool] && !allowed[tool].includes(body.action)) return send(res, 400, { error: "action not allowed" });
         // From the page, the map only takes concept triage and notes.
@@ -96,6 +100,9 @@ export function startDesk({ port, cacheDir, callTool, log }) {
           for (const k of ["id", "text", "status"]) if (body[k] !== undefined) input[k] = body[k];
         } else if (tool === "map" && body.action === "task_order") {
           input = { action: "task_order", status: body.status, ids: Array.isArray(body.ids) ? body.ids.map(String) : [] };
+        } else if (tool === "map" && body.action === "repo") {
+          if (!["add", "remove", "edit"].includes(body.op)) return send(res, 400, { error: "action not allowed" });
+          input = { action: "repo", op: body.op, id: body.id, path: body.path, label: body.label, role: body.role };
         } else if (tool === "map" && body.action === "undefine") {
           input = { action: "undefine", id: String(body.id || "") };
         } else if (tool === "session" && body.action === "papers") {
