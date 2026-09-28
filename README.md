@@ -12,7 +12,7 @@
 
 ## What is this? 🧭
 
-Paper Scout started as a small itch: I loved doing research with the [Feynman](https://github.com/companion-inc/feynman) agent, but not in a terminal. So I brought it into the Claude desktop app and kept adding the things I missed while writing a PhD.
+Paper Scout started as an itch: I liked doing research with the [Feynman](https://github.com/companion-inc/feynman) agent harness for my PhD work, but not in a terminal. So I brought it into the Claude desktop app and kept adding the things I missed while on my research process.
 
 The repository has two parts that work together:
 
@@ -21,7 +21,7 @@ The repository has two parts that work together:
 | **Paper Scout** (`extension/`) | A desktop extension for Claude. It searches and reads papers with as few tokens as possible, keeps a ledger of everything you screened, and stores a **research map** (concepts, framework, the versioned idea, tasks) as plain files in your project folder. It also serves the **Research Desk**, a local page where you make the decisions. |
 | **Paper Scout for Cowork** (`plugin/`) | A plugin with the research workflows (literature review, deep research, peer review, drafting and more), adapted from Feynman to Claude's Cowork mode, with explicit start and end commands so it only runs when you want it. |
 
-The rule behind everything: **Claude proposes, you decide.** Claude reads, suggests concepts, links evidence and drafts. Adopting a concept, accepting a relationship or rewriting your idea always waits for you.
+The rule behind everything: **Claude proposes, you decide.** Claude brainstorms, suggests concepts, links evidence and drafts. Adopting a concept, accepting a relationship or rewriting your idea always waits for you. True human-in-the-wheel.
 
 ## A quick tour
 
@@ -103,11 +103,10 @@ A plain, printable summary of the current idea, its framing and methodology, the
 
 <p align="center"><img src="docs/images/summary.png" alt="The one-page summary" width="60%"></p>
 
-### Day and night
+### Night Mode 🌙
 
 <p align="center">
-  <img src="docs/images/idea-dark.png" alt="Dark mode" width="62%">&nbsp;&nbsp;
-  <img src="docs/images/mobile.png" alt="Phone width" width="22%">
+  <img src="docs/images/idea-dark.png" alt="Dark mode" width="62%">
 </p>
 
 ## How it saves tokens
