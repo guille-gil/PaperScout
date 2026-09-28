@@ -80,7 +80,7 @@ export function startDesk({ port, cacheDir, callTool, log }) {
         const body = await readBody(req);
         if (!body) return send(res, 400, { error: "bad JSON" });
         const tool = u.pathname.slice(5);
-        const allowed = { session: ["note", "start", "bibtex", "card", "title", "papers"], search: null, code: null, paper: null, map: ["concept", "note", "task", "task_order", "framework", "ontology", "edit", "claim", "undefine", "repo"] };
+        const allowed = { session: ["note", "start", "bibtex", "card", "title", "papers", "pulse_papers", "screen_oa"], search: null, code: null, paper: null, map: ["concept", "note", "task", "task_order", "framework", "ontology", "edit", "claim", "undefine", "repo"] };
         if (!(tool in allowed)) return send(res, 404, { error: "unknown action" });
         if (allowed[tool] && !allowed[tool].includes(body.action)) return send(res, 400, { error: "action not allowed" });
         // From the page, the map only takes concept triage and notes.
@@ -114,6 +114,10 @@ export function startDesk({ port, cacheDir, callTool, log }) {
           input = { action: "repo", op: body.op, id: body.id, path: body.path, label: body.label, role: body.role };
         } else if (tool === "map" && body.action === "undefine") {
           input = { action: "undefine", id: String(body.id || "") };
+        } else if (tool === "session" && body.action === "pulse_papers") {
+          input = { action: "pulse_papers", phrase: String(body.phrase || ""), page: body.page };
+        } else if (tool === "session" && body.action === "screen_oa") {
+          input = { action: "screen_oa", id: String(body.id || "") };
         } else if (tool === "session" && body.action === "papers") {
           if (!["show", "sync"].includes(body.op || "show")) return send(res, 400, { error: "action not allowed" });
           input = { action: "papers", op: body.op || "show", handles: Array.isArray(body.handles) ? body.handles.map(String).slice(0, 50) : undefined };

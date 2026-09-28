@@ -2,6 +2,12 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.17.0 (2026-09-28)
+
+### Paper Scout
+- Each concept shows where it sits in your own papers: one line per paper with what it does for the concept (defines it, evidence for or against a claim that uses it) and where (section or page).
+- The count of papers mentioning a concept opens the papers themselves, most cited first, with the phrase highlighted in the title or in a snippet of the abstract, and a button to add any of them to screening. The Desk fetches this from OpenAlex itself, so it costs no Claude tokens.
+
 ## 0.16.1 (2026-09-28)
 
 ### Paper Scout

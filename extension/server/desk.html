@@ -279,6 +279,15 @@ table.cmp td.y::after { content: ""; display: inline-block; width: 9px; height: 
 .shelf-row { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; padding: 6px 0; border-top: 1px solid var(--rule-soft); align-items: baseline; }
 .shelf-row .st { width: 9px; height: 9px; border-radius: 50%; background: var(--good); display: inline-block; }
 .shelf-row .st.missing { background: none; border: 1.5px solid var(--bad); }
+.where-list { display: grid; gap: 4px; font-size: 14px; }
+.where { display: grid; grid-template-columns: minmax(120px, max-content) 1fr; gap: 10px; align-items: baseline; }
+@media (max-width: 520px) { .where { grid-template-columns: 1fr; gap: 0; } }
+.pp-list { display: grid; gap: 0; margin-top: 8px; border-top: 1px solid var(--rule-soft); }
+.pp { padding: 9px 0; border-bottom: 1px solid var(--rule-soft); display: grid; gap: 3px; font-size: 14px; }
+.pp-t { font: 500 15.5px/1.35 var(--serif); color: var(--ink); text-decoration: none; } .pp-t:hover { color: var(--accent); text-decoration: underline; }
+.pp-w { font-size: 13px; color: var(--ink-2); }
+.pp mark, .pp-t mark { background: var(--mark-soft); color: inherit; padding: 0 1px; border-radius: 2px; }
+.pp .linkbtn { justify-self: start; font-size: 12.5px; }
 .pick { display: inline-flex; gap: 8px; align-items: center; flex: none; }
 .savebtn { display: inline-flex; gap: 6px; align-items: center; background: var(--leaf); border: 1px solid var(--rule); border-radius: 7px; padding: 5px 10px; font-size: 13.5px; color: var(--ink-2); cursor: pointer; }
 .savebtn svg { width: 16px; height: 14px; }
@@ -728,14 +737,15 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
     const years = defs.map(([, d]) => d.year).filter(Boolean);
     const meta = [c.role ? { core: "Core construct", lens: "Lens", context: "Context" }[c.role] : "", inUse.has(h) ? "Used in the idea" : "",
       defs.length ? `${cap(plural(defs.length, "definition"))}${years.length ? `, ${years[0]}${years.length > 1 && years.at(-1) !== years[0] ? " to " + years.at(-1) : ""}` : ""}` : "",
-      c.pulse ? `${c.pulse.total.toLocaleString("en-GB")} papers` : ""].filter(Boolean);
+      ""].filter(Boolean);
     const opts = [["adopted", "Adopt", "good"], ["parked", "Park", "warn"], ["dropped", "Drop", "bad"]];
     const item = el("div", { class: "item" + (c.status === "candidate" ? " needs" : "") },
       el("div", { class: "top" }, chev(open),
         el("button", { class: "name", type: "button", "aria-expanded": String(open), onclick: () => flip(key) }, cap(c.label), c.pulse ? spark(c.pulse, false) : null),
         el("div", { class: "choice", role: "group", "aria-label": "Decision for " + c.label }, ...opts.map(([s, l, v]) => el("button", { type: "button", "data-v": v, "aria-pressed": String(c.status === s), disabled: !canWrite() || null,
           onclick: () => setConcept(h, c.status === s ? "candidate" : s) }, l)))),
-      meta.length ? el("div", { class: "indent" }, el("div", { class: "meta" }, ...meta.map((x) => el("span", {}, x)))) : null);
+      meta.length || c.pulse ? el("div", { class: "indent" }, el("div", { class: "meta" }, ...meta.map((x) => el("span", {}, x)),
+        c.pulse ? el("button", { class: "linkbtn", type: "button", style: "font-size:inherit;color:inherit;text-decoration:underline dotted", title: "Show these papers", onclick: () => { S.open.add(key); S.open.add("pp:" + h); render(); } }, `${c.pulse.total.toLocaleString("en-GB")} papers`) : null)) : null);
     if (open) {
       const body = el("div", { class: "body" });
       if (canWrite()) body.append(editableField(h, "label", "Name", c.label, ""));
@@ -762,7 +772,9 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       }
       const rel = m.links.filter((l) => l.from === h && ["sameas", "related"].includes(l.rel));
       if (rel.length) body.append(el("div", { class: "field" }, el("h4", {}, "Related"), el("p", {}, rel.map((l) => `${{ sameas: "Same as", related: "Related to" }[l.rel]} ${conceptLabel(l.to)}`).join("; "))));
-      if (c.pulse) body.append(el("div", { class: "field" }, el("h4", {}, `Papers per year mentioning "${c.pulse.phrase}"`), spark(c.pulse, true)));
+      const mine = conceptPapers(h);
+      if (mine.length) body.append(el("div", { class: "field" }, el("h4", {}, `In your papers (${mine.length})`), el("div", { class: "where-list" }, ...mine.map((x) => el("div", { class: "where" }, el("span", {}, x.label), el("span", { class: "missing" }, x.roles.join("; ")))))));
+      if (c.pulse) body.append(pulseField(h, c));
       if (c.useHistory?.length) body.append(el("div", { class: "field" }, el("h4", {}, "Earlier working definitions"), ...c.useHistory.map((u) => el("p", { class: "missing" }, `${cap(u.text)} (until ${fmtDate(u.until)})`))));
       if (c.note) body.append(el("div", { class: "field" }, el("h4", {}, "Note"), el("p", {}, cap(c.note))));
       const notes = Object.entries(m.notes || {}).filter(([, n]) => n.about === h && n.status === "open");
@@ -776,6 +788,52 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       item.append(body);
     }
     return item;
+  }
+  // Where the project's own papers touch a concept: its definitions and the evidence for claims that use it.
+  function conceptPapers(h) {
+    const m = MM(), by = new Map();
+    // One line per paper: what it does for the concept and where, e.g. "defines it (§2); evidence for "…" (Abstract, §5.1)".
+    const add = (ph, what, loc) => { if (!by.has(ph)) by.set(ph, new Map()); const r = by.get(ph); if (!r.has(what)) r.set(what, new Set()); if (loc) r.get(what).add(loc); };
+    for (const d of Object.values(m.definitions)) if (d.concept === h) add(d.h, "defines it", d.loc);
+    for (const l of m.links.filter((l) => l.rel === "uses" && l.to === h)) {
+      const s = support(l.from);
+      for (const [rel, hs] of Object.entries(s)) for (const x of hs) { const [ph, n] = x.split("#"); const c = n ? M().papers[ph]?.cards?.[Number(n) - 1] : null; add(ph, { supports: "evidence for", opposes: "evidence against", qualifies: "qualifies" }[rel] + ` "${clipT(m.claims[l.from]?.text, 50)}"`, c?.l || ""); }
+    }
+    return [...by].map(([ph, r]) => ({ label: paperRef(ph).replace(/ \(P\d+\)$/, ""), roles: [...r].map(([what, locs]) => locs.size ? `${what} (${[...locs].join(", ")})` : what) }));
+  }
+  // The papers behind the pulse count, fetched by the Desk itself (no Claude tokens), most cited first.
+  function pulseField(h, c) {
+    const key = "pp:" + h, open = isOpen(key), data = S.outputs[key];
+    const total = c.pulse.total;
+    const fetchPage = async (page = 1) => {
+      S.outputs[key] = { loading: true, ...(page > 1 ? S.outputs[key] : {}) }; S.open.add(key); render();
+      try { const r = JSON.parse(await call("session", { action: "pulse_papers", phrase: c.pulse.phrase, page })); const prev = page > 1 && S.outputs[key]?.works ? S.outputs[key].works : []; S.outputs[key] = { ...r, works: [...prev, ...r.works] }; }
+      catch (e) { S.outputs[key] = { error: errText(e) }; }
+      render();
+    };
+    const hl = (text, phrase) => { const i = text.toLowerCase().indexOf(phrase.toLowerCase()); return i < 0 ? [text] : [text.slice(0, i), el("mark", {}, text.slice(i, i + phrase.length)), text.slice(i + phrase.length)]; };
+    const field = el("div", { class: "field" }, el("h4", {}, `Papers per year mentioning "${c.pulse.phrase}"`), spark(c.pulse, true),
+      el("button", { class: "linkbtn", type: "button", style: "margin-top:6px", onclick: () => { if (open) flip(key); else if (data?.works) { S.open.add(key); render(); } else fetchPage(); } },
+        open ? "Hide the papers" : total > 25 ? `Show the most cited of the ${total.toLocaleString("en-GB")} papers` : `Show the ${plural(total, "paper")}`));
+    if (open && !data) setTimeout(() => fetchPage(), 0);
+    if (open && data) {
+      if (data.loading && !data.works) field.append(el("p", { class: "missing" }, "Asking OpenAlex…"));
+      else if (data.error) field.append(el("p", { class: "missing" }, data.error));
+      else {
+        field.append(el("div", { class: "pp-list" }, ...data.works.map((w) => {
+          const url = w.doi ? `https://doi.org/${w.doi}` : w.arxiv ? `https://arxiv.org/abs/${w.arxiv}` : `https://openalex.org/${w.id}`;
+          const screen = w.handle ? el("span", { class: "missing" }, `In your papers as ${w.handle}`) : canWrite() ? el("button", { class: "linkbtn", type: "button", onclick: async (e) => { e.target.disabled = true; try { const hh = await call("session", { action: "screen_oa", id: w.id }); w.handle = String(hh).trim(); banner(`Added to your papers as ${w.handle}, waiting to be screened.`); load({ quiet: true }); } catch (err) { banner(errText(err), true); } render(); } }, "Add to screening") : null;
+          return el("div", { class: "pp" },
+            el("a", { href: url, target: "_blank", rel: "noopener", class: "pp-t" }, ...hl(w.title, data.phrase)),
+            el("div", { class: "meta" }, ...[who(w.lasts), w.year, w.venue, w.cites != null ? `${w.cites} citations` : ""].filter(Boolean).map((x) => el("span", {}, x))),
+            w.where === "title" && !w.snippet ? el("div", { class: "pp-w" }, "In the title") : w.snippet ? el("div", { class: "pp-w" }, w.where === "title" ? "In the title and the abstract: " : "In the abstract: ", ...hl(w.snippet, data.phrase)) : null,
+            screen);
+        })));
+        if (data.works.length < data.total) field.append(el("button", { class: "linkbtn", type: "button", onclick: () => fetchPage((data.page || 1) + 1) }, data.loading ? "Loading…" : `Show 25 more (${data.works.length} of ${data.total.toLocaleString("en-GB")})`));
+        field.append(el("p", { class: "hint" }, "From OpenAlex, searching titles and abstracts. Fetched by the Desk, so it costs no tokens."));
+      }
+    }
+    return field;
   }
   function editableField(h, field, label, value, empty) {
     return editable({ key: `edit:${h}:${field}`, label, value, empty, rows: field === "label" ? 1 : 3, onSave: (v) => act("map", field === "alt_set" ? { action: "concept", id: h, alt_set: v.split(/\s*[,;]\s*/).filter(Boolean) } : { action: "concept", id: h, [field]: v }) });

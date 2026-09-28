@@ -15,7 +15,7 @@ import { verifyDraft } from "./verify.mjs";
 import { startDesk } from "./desk.mjs";
 import { ResearchMap, definitionHits } from "./map.mjs";
 
-const VERSION = "0.16.1";
+const VERSION = "0.17.0";
 const PARSER_VERSION = "3";
 const S2 = "https://api.semanticscholar.org/graph/v1";
 const S2_REC = "https://api.semanticscholar.org/recommendations/v1";
@@ -1207,6 +1207,34 @@ async function conceptPulse(phrase) {
   const earliest = (e.results || []).map((w) => ({ title: w.display_name, year: w.publication_year, doi: (w.doi || "").replace(/^https?:\/\/doi\.org\//, "") }));
   return { total: g.meta?.count ?? Object.values(years).reduce((a, b) => a + b, 0), years, earliest };
 }
+// The papers behind a concept's pulse, for the Research Desk only (Claude never sees this list, so it
+// costs no tokens): most cited first, with where the phrase appears (title, or a snippet of the abstract).
+async function pulsePapers(a) {
+  const phrase = oneLine(a.phrase); if (!phrase) throw new Error("phrase required");
+  const filter = `title_and_abstract.search:"${phrase.replace(/"/g, "")}"`;
+  const page = Math.max(1, Math.min(Number(a.page) || 1, 20));
+  const r = await http(oaUrl("/works", { filter, sort: "cited_by_count:desc", per_page: 25, page, select: "id,display_name,publication_year,doi,cited_by_count,primary_location,authorships,abstract_inverted_index,open_access" }), { ttl: DAY });
+  const st = LEDGER.ensure(), low = phrase.toLowerCase();
+  const known = (w) => { const doi = (w.doi || "").replace(/^https?:\/\/doi\.org\//, "").toLowerCase(); const id = (w.id || "").replace("https://openalex.org/", ""); return Object.entries(st.papers).find(([, p]) => (doi && (p.ids?.doi || "").toLowerCase() === doi) || (id && p.ids?.openalex === id))?.[0] || ""; };
+  const works = (r.results || []).map((w) => {
+    const title = oneLine(w.display_name), abs = invertAbstract(w.abstract_inverted_index);
+    let where = "", snippet = "";
+    if (title.toLowerCase().includes(low)) where = "title";
+    const i = abs.toLowerCase().indexOf(low);
+    if (i >= 0) { where ||= "abstract"; const s0 = Math.max(0, abs.lastIndexOf(" ", Math.max(0, i - 110)) + 1), s1 = abs.indexOf(" ", Math.min(abs.length, i + low.length + 110)); snippet = (s0 > 0 ? "…" : "") + abs.slice(s0, s1 < 0 ? abs.length : s1) + (s1 > 0 ? "…" : ""); }
+    else if (!where) where = "abstract";
+    const rec = recOA(w);
+    return { id: rec.ids.openalex, title, year: w.publication_year, venue: rec.venue || "", lasts: rec.lasts, cites: w.cited_by_count, doi: rec.ids.doi, arxiv: rec.ids.arxiv, where, snippet, handle: known(w) };
+  });
+  return JSON.stringify({ phrase, total: r.meta?.count ?? 0, page, works });
+}
+async function screenOA(a) {
+  const id = String(a.id || "").replace(/[^A-Za-z0-9]/g, ""); if (!/^W\d+$/.test(id)) throw new Error("OpenAlex work id required");
+  const w = await http(oaUrl(`/works/${id}`, {}), { ttl: DAY });
+  const { h } = LEDGER.register(recOA(w)); LEDGER.save();
+  return `${h}`;
+}
+
 // APA 7 references: the DOI registry's formatter first, then Zotero data, then arXiv metadata.
 function apaAuthors(list) {
   const f = (a) => `${a.last}${a.first ? ", " + a.first.split(/[\s-]+/).filter(Boolean).map((x) => x[0].toUpperCase() + ".").join(" ") : ""}`;
@@ -1357,7 +1385,7 @@ const MAP = new ResearchMap({ ledger: LEDGER, cacheDir: CFG.cacheDir, pulse: con
 const HANDLERS = {
   desk: () => DESK?.running ? `Research Desk: ${DESK.url}\nOpen it now in the built-in browser pane (preview_start with this URL); do not ask first. It follows the active project and updates live.` : "The Research Desk is not running (its port may be taken by another copy of Paper Scout).",
   search: toolSearchAll, paper: toolPaperAll, graph: toolGraph, read: toolReadAll, code: toolCode,
-  session: async (a) => (await refreshSurnames(), a.action === "usage" ? usageSummary() : a.action === "papers" ? toolPapersFolder(a) : a.action === "bibtex" ? toolBibtex(a) : a.action === "start" ? LEDGER.tool(a) + (DESK?.running ? `\nResearch Desk: ${DESK.url} (open it in the browser pane now)` : "") : a.action === "roles" ? (await fillCitations(), LEDGER.tool(a)) : LEDGER.tool(a)),
+  session: async (a) => (await refreshSurnames(), a.action === "usage" ? usageSummary() : a.action === "pulse_papers" ? pulsePapers(a) : a.action === "screen_oa" ? screenOA(a) : a.action === "papers" ? toolPapersFolder(a) : a.action === "bibtex" ? toolBibtex(a) : a.action === "start" ? LEDGER.tool(a) + (DESK?.running ? `\nResearch Desk: ${DESK.url} (open it in the browser pane now)` : "") : a.action === "roles" ? (await fillCitations(), LEDGER.tool(a)) : LEDGER.tool(a)),
   verify: (a) => verifyDraft(a, { LEDGER, http, oaUrl, loadFullText, xmlText, ARXIV_API }),
   map: async (a) => (await refreshSurnames(), a.action === "snapshot" ? JSON.stringify(MAP.snapshot(a.project)) : a.action === "summary_html" ? (MAP.load(a.project), MAP.summaryHtml(await MAP.references())) : MAP.tool(a)),
 };
