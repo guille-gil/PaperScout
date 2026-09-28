@@ -163,12 +163,15 @@ Open `paperscout.plugin` with the Claude desktop app, then type `/paperscout:sta
 | Command | What happens |
 | --- | --- |
 | `/paperscout:start` | Turns on research mode for the task, connects your project and gives you the Research Desk link |
+| `/paperscout:desk` | Reopens the Research Desk in the browser pane; `/paperscout:desk browser` opens it in your own browser |
 | `/paperscout:ask <question>` | A quick answer from the literature: verdict, positions, debate and a reading list |
 | `/paperscout:lit <topic>` | A full literature review with citations and provenance |
 | `/paperscout:deepresearch <question>` | A thorough, cited research brief |
 | `/paperscout:review <paper or draft>` | A tough peer review |
 | `/paperscout:draft <topic>` | A paper-style draft built on your research map |
 | `/paperscout:end` | Leaves research mode |
+
+The Desk opens in Claude's browser pane. To keep it open between chats, press **Pop out** on the Desk: it moves to your own browser, where it stays available whenever Claude is running.
 
 The full list appears when you run `/paperscout:start`, and the **Commands** button on the Research Desk keeps it one click away.
 

@@ -386,6 +386,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       <span class="brand"><span class="logo" aria-hidden="true"><svg viewBox="4 4 132 162"><path d="M20 10 H100 L130 40 V150 Q130 160 120 160 H20 Q10 160 10 150 V20 Q10 10 20 10 Z" fill="var(--leaf)" stroke="var(--ink)" stroke-width="9" stroke-linejoin="round"/><path d="M100 10 V32 Q100 40 108 40 H130" fill="none" stroke="var(--ink)" stroke-width="9" stroke-linejoin="round"/><path d="M32 132 C 52 110, 40 92, 62 82 S 92 70, 96 58" fill="none" stroke="var(--accent)" stroke-width="9" stroke-linecap="round" stroke-dasharray="1 15"/><circle cx="98" cy="56" r="13" fill="var(--mark)" stroke="var(--ink)" stroke-width="5"/></svg></span><span id="wordmark">Paper <i>Scout</i></span></span>
       <span class="controls">
         <label class="switch"><span>Project</span><select id="project" aria-label="Switch project"></select></label>
+        <button class="icon" id="popout" type="button" title="Open the Desk in your own browser, where it stays open between chats">Pop out</button>
         <button class="icon" id="help" type="button" title="Commands and usage" aria-haspopup="dialog">Commands</button>
         <button class="icon" id="live" type="button" aria-pressed="false" title="Follow changes live"><span class="dot"></span>Live</button>
         <button class="icon" id="refresh" type="button" title="Refresh" aria-label="Refresh">&#8635;</button>
@@ -1520,6 +1521,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
   const kTok = (n) => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : String(n || 0);
   const CMDS = [
     ["/paperscout:start", "Turn on research mode for this task, connect the project and get the Desk link."],
+    ["/paperscout:desk", "Reopen the Desk in the browser pane; add \"browser\" to open it in your own browser, where it stays between chats."],
     ["/paperscout:ask <question>", "A quick answer from the literature: verdict, positions, debate and a reading list, saved to the map."],
     ["/paperscout:lit <topic>", "A literature review of a topic, lab or author, with citations and provenance."],
     ["/paperscout:deepresearch <question>", "A thorough, cited brief; you approve the plan first."],
@@ -1560,6 +1562,12 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
   }
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.sheet) closeSheet(); });
   $("#help").addEventListener("click", () => openSheet("commands"));
+  // The Desk in the user's own browser: it stays open between chats and when Claude's browser pane is closed.
+  $("#popout").addEventListener("click", () => {
+    fetch(`/api/open-url?t=${TOKEN}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: location.origin + "/?t=" + TOKEN }) })
+      .then((r) => { if (!r.ok) throw new Error(); banner("Opened in your browser. Bookmark it: the Desk is there whenever Claude is running."); setTimeout(() => banner(null), 5000); })
+      .catch(() => window.open(location.href, "_blank", "noopener"));
+  });
 
   // Every link that leaves the Desk (papers, Semantic Scholar, the library, GitHub, the summary, PDFs) opens in
   // your default browser, so the pane showing the Desk never navigates away from it.

@@ -15,7 +15,7 @@ import { verifyDraft } from "./verify.mjs";
 import { startDesk } from "./desk.mjs";
 import { ResearchMap, definitionHits } from "./map.mjs";
 
-const VERSION = "0.18.0";
+const VERSION = "0.19.0";
 const PARSER_VERSION = "3";
 const S2 = "https://api.semanticscholar.org/graph/v1";
 const S2_REC = "https://api.semanticscholar.org/recommendations/v1";
@@ -1193,8 +1193,8 @@ TOOLS.push({ name: "map", description: "The project's research map (notes/resear
     uses: IDS, answers: IDS, verdict: { type: "string" }, coverage: { type: "string" }, from: IDS, rel: { type: "string" }, to: IDS,
     statement: { type: "string" }, background: { type: "string" }, positioning: { type: "string" }, thesis: { type: "string" }, novelty: { type: "string" }, method: { type: "string" },
     claims: IDS, concepts: IDS, trigger: { type: "string" }, trigger_ref: { type: "string" }, trigger_note: { type: "string" }, change: { type: "string" }, rationale: { type: "string" }, branch_of: { type: "string" }, path: { type: "string" }, url: { type: "string" }, project: { type: "string" } }) });
-TOOLS.push({ name: "desk", description: "Link to the Research Desk, the local page where the user sees and edits the project (idea, concepts, frameworks, papers, tasks). Open it in the built-in browser pane without asking.",
-  inputSchema: S({}) });
+TOOLS.push({ name: "desk", description: "Link to the Research Desk, the local page where the user sees and edits the project (idea, concepts, frameworks, papers, tasks). Open it in the built-in browser pane without asking. browser=true opens it in the user's own browser instead, where it stays open between chats.",
+  inputSchema: S({ browser: { type: "boolean" } }) });
 // Read-only hints let the Claude app run these without asking each time; they only record what was seen.
 for (const t of TOOLS) if (["search", "paper", "graph", "read", "code", "desk", "verify"].includes(t.name)) t.annotations = { readOnlyHint: true };
 // ---------- research map ----------
@@ -1383,7 +1383,9 @@ const MAP = new ResearchMap({ ledger: LEDGER, cacheDir: CFG.cacheDir, pulse: con
   scan: async (h, terms) => definitionHits(await loadFullText(h), terms) });
 
 const HANDLERS = {
-  desk: () => DESK?.running ? `Research Desk: ${DESK.url}\nOpen it now in the built-in browser pane (preview_start with this URL); do not ask first. It follows the active project and updates live.` : "The Research Desk is not running (its port may be taken by another copy of Paper Scout).",
+  desk: (a) => !DESK?.running ? "The Research Desk is not running (its port may be taken by another copy of Paper Scout)."
+    : a?.browser ? (DESK.openExternal(DESK.url) ? "Opened the Research Desk in the user's default browser. It stays there between chats while Claude is running; bookmarking it keeps it one click away." : `Could not open the browser. Research Desk: ${DESK.url}`)
+    : `Research Desk: ${DESK.url}\nOpen it now in the built-in browser pane (preview_start with this URL, in its own tab); do not ask first. Never navigate or close that tab; open other pages in new tabs. It follows the active project and updates live.`,
   search: toolSearchAll, paper: toolPaperAll, graph: toolGraph, read: toolReadAll, code: toolCode,
   session: async (a) => (await refreshSurnames(), a.action === "usage" ? usageSummary() : a.action === "pulse_papers" ? pulsePapers(a) : a.action === "screen_oa" ? screenOA(a) : a.action === "papers" ? toolPapersFolder(a) : a.action === "bibtex" ? toolBibtex(a) : a.action === "start" ? LEDGER.tool(a) + (DESK?.running ? `\nResearch Desk: ${DESK.url} (open it in the browser pane now)` : "") : a.action === "roles" ? (await fillCitations(), LEDGER.tool(a)) : LEDGER.tool(a)),
   verify: (a) => verifyDraft(a, { LEDGER, http, oaUrl, loadFullText, xmlText, ARXIV_API }),

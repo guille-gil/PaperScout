@@ -2,6 +2,16 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.19.0 (2026-09-28)
+
+### Paper Scout
+- **Pop out** on the Desk opens it in your own browser, where it stays open between chats and when Claude's browser pane is closed. It works whenever Claude is running; bookmark it.
+- `desk` with `browser=true` does the same from a chat.
+
+### Paper Scout for Cowork (0.12.0)
+- `/paperscout:desk` reopens the Desk in the browser pane; `/paperscout:desk browser` opens it in your own browser.
+- In research mode Claude leaves the Desk tab alone (other pages open in new tabs), reopens it when you mention it and it is closed, and attaches files instead of previewing them so the side panel keeps the Desk.
+
 ## 0.18.0 (2026-09-28)
 
 ### Paper Scout

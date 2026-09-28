@@ -11,6 +11,12 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
+// Opens a web link in the user's default browser (outside Claude).
+export function openExternal(href) {
+  const cmd = process.platform === "darwin" ? ["open", [href]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", href]] : ["xdg-open", [href]];
+  try { spawn(cmd[0], cmd[1], { detached: true, stdio: "ignore" }).on("error", () => {}).unref(); return true; } catch { return false; }
+}
+
 export function startDesk({ port, cacheDir, callTool, log }) {
   mkdirSync(cacheDir, { recursive: true });
   const tokFile = join(cacheDir, "desk-token");
@@ -18,7 +24,7 @@ export function startDesk({ port, cacheDir, callTool, log }) {
   try { token = readFileSync(tokFile, "utf8").trim(); } catch {}
   if (!/^[a-f0-9]{32}$/.test(token)) { token = randomBytes(16).toString("hex"); try { writeFileSync(tokFile, token); } catch {} }
   const url = `http://127.0.0.1:${port}/?t=${token}`;
-  const state = { url, running: false };
+  const state = { url, running: false, openExternal: (href) => openExternal(href) };
 
   const send = (res, code, body, type = "application/json; charset=utf-8") => {
     res.writeHead(code, { "content-type": type, "cache-control": "no-store", "x-content-type-options": "nosniff" });
@@ -53,8 +59,7 @@ export function startDesk({ port, cacheDir, callTool, log }) {
         const body = await readBody(req);
         let url; try { url = new URL(String(body?.url || "")); } catch { return send(res, 400, { error: "bad url" }); }
         if (!["http:", "https:"].includes(url.protocol)) return send(res, 400, { error: "only web links" });
-        const cmd = process.platform === "darwin" ? ["open", [url.href]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", url.href]] : ["xdg-open", [url.href]];
-        try { spawn(cmd[0], cmd[1], { detached: true, stdio: "ignore" }).on("error", () => {}).unref(); } catch { return send(res, 500, { error: "could not open" }); }
+        if (!openExternal(url.href)) return send(res, 500, { error: "could not open" });
         return send(res, 200, { text: "opened" });
       }
       if (req.method === "POST" && u.pathname === "/api/open-folder") {
