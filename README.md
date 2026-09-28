@@ -25,7 +25,7 @@ The rule behind everything: **Claude proposes, you decide.** Claude brainstorms,
 
 This is how Paper Scout looks like:
 
-<p align="center"><img src="docs/demo.gif" alt="A 30-second tour of the Research Desk" width="80%"></p>
+<p align="center"><img src="docs/demo.gif" alt="A 30-second tour of the Research Desk" width="90%"></p>
 
 
 ## A quick tour
