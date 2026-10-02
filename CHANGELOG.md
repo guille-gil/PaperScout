@@ -2,6 +2,17 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.20.0 (2026-10-02)
+
+A lighter Paper Scout: less context loaded in every conversation, fewer tokens spent per workflow.
+
+### Paper Scout
+- The `map` tool definition no longer carries the framework and ontology parameters, so Claude's tool definitions are about 300 tokens shorter in every conversation and in every subagent. Frameworks and the ontology are unchanged on the Research Desk, where you draw and edit them; only Claude's ability to propose edges and placements is gone.
+
+### Paper Scout for Cowork (0.13.0)
+- `/paperscout:lit` and `/paperscout:deepresearch` search directly by default instead of launching researchers, verifier and reviewer subagents, each of which pays again for the tool definitions and its own searches. Fan-out happens when you ask for it or the work splits into clearly separate areas, and the plan states a call budget (about 30 calls direct) that Claude stops at and reports.
+- `/paperscout:start` no longer prints the list of commands, which is on the Desk under Commands. The start skill and the map rules are shorter by about a thousand tokens (the framework and ontology rules are gone).
+
 ## 0.19.0 (2026-09-28)
 
 ### Paper Scout

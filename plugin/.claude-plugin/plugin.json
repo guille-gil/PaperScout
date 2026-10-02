@@ -1,6 +1,6 @@
 {
   "name": "paperscout",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Paper Scout research mode for Cowork: evidence-first research workflows (literature review, deep research, review, audit, compare, draft, summarise, replicate) on top of the Paper Scout extension. Adapted from Feynman by Companion, Inc.",
   "author": {
     "name": "Guillermo Gil de Avalle"
