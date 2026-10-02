@@ -81,6 +81,13 @@ nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(-
 .ms-src { padding: 6px 0; font-size: 14px; border-bottom: 1px solid var(--rule-soft); }
 .ms-ask { background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; margin-bottom: 12px; }
 .ms-ask code { font: 13px var(--mono); }
+.ms-gap { display: grid; gap: 6px; margin-bottom: 4px; }
+.ms-chosen, .ms-hits { margin-left: 14px; padding: 8px 12px; border-left: 2px solid var(--accent); display: grid; gap: 8px; font-size: 13.5px; }
+.ms-chosen h4 { margin: 0; font: 600 11px/1.3 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.ms-ch { display: flex; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+.ms-cht { flex: 1 1 260px; }
+.ms-hit { display: grid; gap: 3px; padding-bottom: 8px; border-bottom: 1px solid var(--rule-soft); }
+.ms-hit a { color: var(--ink); text-decoration-color: var(--rule); }
 .ms-gone { margin-top: 10px; }
 .ms-gone > summary { cursor: pointer; color: var(--ink-2); font-size: 13px; padding: 4px 0; }
 .badge { font: 600 11px/1 var(--sans); background: var(--mark); color: #2A2410; border-radius: 999px; padding: 3px 6px; }
@@ -611,7 +618,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
 
   // ----- Manuscript -----
   // The user's LaTeX draft, read on this Mac by Paper Scout (never edited). Nothing on this page costs Claude tokens.
-  S.ms = { data: null, key: "", busy: false, error: "", path: "" };
+  S.ms = { data: null, key: "", busy: false, error: "", path: "", find: {}, scope: null };
   async function loadMs() {
     if (S.ms.busy) return; S.ms.busy = true;
     try {
@@ -635,11 +642,57 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
         el("div", { class: "mini" }, inp, el("button", { class: "btn", type: "button", onclick: go }, "Link"))) : null,
       !(ms.found || []).length ? el("p", { class: "missing" }, "No .tex file with a \\documentclass was found in the project folder.") : null];
   }
-  function msGap(g) {
+  const msHref = (p) => p.ids?.doi ? `https://doi.org/${p.ids.doi}` : p.ids?.arxiv ? `https://arxiv.org/abs/${p.ids.arxiv}` : p.ids?.corpus ? `https://www.semanticscholar.org/p/${p.ids.corpus}` : "";
+  const copyBtn = (text, label) => el("button", { class: "linkbtn", type: "button", onclick: (e) => { try { navigator.clipboard.writeText(text); e.target.textContent = "Copied"; } catch { e.target.textContent = text; } } }, label || "Copy " + text);
+  async function msFind(g) {
+    S.ms.find[g.id] = { loading: true }; render();
+    try { S.ms.find[g.id] = { data: JSON.parse(await call("search", { for: g.id, json: true, limit: 5 })) }; } catch (e) { S.ms.find[g.id] = { error: errText(e) }; }
+    render();
+  }
+  async function msRefresh() { S.ms.key = ""; await load({ quiet: true }); await loadMs(); }
+  async function msChoose(g, p) { try { await call("map", { action: "manuscript", op: "attach", id: g.id, handle: p.h }); if (p.status !== "kept") await call("session", { action: "note", handles: [p.h], status: "kept" }); delete S.ms.find[g.id]; await msRefresh(); } catch (e) { banner(errText(e), true); } }
+  async function msNotThis(g, p) { try { await call("session", { action: "note", handles: [p.h], status: "dropped" }); const f = S.ms.find[g.id]; if (f?.data) f.data.items = f.data.items.filter((x) => x.h !== p.h); render(); await load({ quiet: true }); } catch (e) { banner(errText(e), true); } }
+  async function msAddBib(h) {
+    if (!confirm("Append this paper's BibTeX entry to the end of your .bib file? Nothing already in it is changed.")) return;
+    try { banner(await call("map", { action: "manuscript", op: "bib_add", handle: h })); await msRefresh(); } catch (e) { banner(errText(e), true); }
+  }
+  function msChosen(g, ms) {
+    const list = (ms.attach || {})[g.id] || [];
+    if (!list.length) return null;
+    return el("div", { class: "ms-chosen" }, el("h4", {}, "Chosen for this sentence"), ...list.map((c) => el("div", { class: "ms-ch" },
+      el("span", { class: "ms-cht" }, `${who(c.lasts)} (${c.year}) ${clipT(c.title, 90)}`),
+      c.key ? copyBtn(`\\citep{${c.key}}`) : canWrite() ? el("button", { class: "linkbtn", type: "button", title: "Appends the entry to the end of your .bib", onclick: () => msAddBib(c.h) }, "Add to .bib") : null,
+      canWrite() ? el("button", { class: "linkbtn", type: "button", onclick: () => msAct({ op: "detach", id: g.id, handle: c.h }) }, "Remove") : null)));
+  }
+  function msResults(g) {
+    const f = S.ms.find[g.id];
+    if (!f) return null;
+    if (f.loading) return el("p", { class: "missing" }, "Searching, and ranking against the sentence…");
+    if (f.error) return el("div", { class: "notice err" }, f.error);
+    const d = f.data;
+    return el("div", { class: "ms-hits" },
+      el("div", { class: "nk" }, `${d.found} found for \u201c${d.query}\u201d, ${d.hidden} hidden as off topic${d.hiddenOut ? ` (${d.hiddenOut} on your out-of-scope list)` : ""}.`),
+      ...(d.items.length ? d.items.map((p) => el("div", { class: "ms-hit" },
+        el("div", {}, msHref(p) ? el("a", { href: msHref(p), target: "_blank", rel: "noopener" }, p.title) : p.title),
+        el("div", { class: "nk" }, [who(p.lasts), p.year, p.venue, p.cites != null ? `${p.cites} citations` : "", `fit ${Math.round(p.score * 100)}%`, p.why.length ? "matches " + p.why.join(", ") : "", p.inBib ? "already in your .bib as " + p.inBib : ""].filter(Boolean).join(" \u00b7 ")),
+        canWrite() ? el("div", { class: "mini" }, el("button", { class: "btn small", type: "button", onclick: () => msChoose(g, p) }, "Use for this sentence"), el("button", { class: "linkbtn", type: "button", title: "Drops it from your papers so it does not come back", onclick: () => msNotThis(g, p) }, "Not this")) : null))
+        : [el("p", { class: "missing" }, "Nothing fit well. Try different wording in a chat with Claude, or search from the Papers tab.")]),
+      el("button", { class: "linkbtn", type: "button", onclick: () => { delete S.ms.find[g.id]; render(); } }, "Close"));
+  }
+  function msGap(g, ms) {
     const kind = g.kind === "empty-cite" ? "supervision" : g.strength === "likely" ? "check" : "";
-    return el("div", { class: "note", "data-kind": kind || null },
-      el("div", {}, el("div", {}, g.text), el("div", { class: "nk" }, [`line ${g.line}`, g.section, g.by === "claude" ? "Claude: " + g.why : g.why].filter(Boolean).join(" · "))),
-      canWrite() ? el("button", { class: "linkbtn", type: "button", title: "Not a gap; hide it", onclick: () => msAct({ op: g.dismissed ? "restore" : "dismiss", id: g.id }) }, g.dismissed ? "Restore" : "Dismiss") : null);
+    return el("div", { class: "ms-gap" }, el("div", { class: "note", "data-kind": kind || null },
+      el("div", {}, el("div", {}, g.text), el("div", { class: "nk" }, [`line ${g.line}`, g.section, g.by === "claude" ? "Claude: " + g.why : g.why].filter(Boolean).join(" \u00b7 ")),
+        canWrite() && !g.dismissed && !S.ms.find[g.id] ? el("div", { class: "mini", style: "margin-top:4px" }, el("button", { class: "btn small", type: "button", onclick: () => msFind(g) }, "Find papers")) : null),
+      canWrite() ? el("button", { class: "linkbtn", type: "button", title: "Not a gap; hide it", onclick: () => msAct({ op: g.dismissed ? "restore" : "dismiss", id: g.id }) }, g.dismissed ? "Restore" : "Dismiss") : null),
+      ms ? msChosen(g, ms) : null, msResults(g));
+  }
+  function msScope(ms) {
+    const sc = S.ms.scope || (S.ms.scope = { in: ms.scope?.in || "", out: ms.scope?.out || "" });
+    const ta = (k, label, ph, rows) => { const t = el("textarea", { rows, placeholder: ph, "aria-label": label }); t.value = sc[k]; t.addEventListener("input", () => { sc[k] = t.value; }); return el("div", { class: "field" }, el("h4", {}, label), t); };
+    return [el("p", { class: "missing" }, "Searches for a sentence skip papers that mention anything on the out-of-scope list, and Claude's workflows keep to what you say is in scope. Both are in your words."),
+      ta("in", "In scope", "What this paper is about, in a sentence or two", 2), ta("out", "Out of scope, do not chase", "Topics to ignore, one per line or separated by commas", 2),
+      canWrite() ? el("div", { class: "mini" }, el("button", { class: "btn", type: "button", onclick: async () => { await msAct({ op: "scope", text: sc.in, note: sc.out }); S.ms.scope = null; } }, "Save scope")) : null];
   }
   function viewManuscript() {
     const ms = S.ms.data;
@@ -661,13 +714,14 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
     const gapBody = [];
     if (ms.pending) gapBody.push(el("div", { class: "ms-ask" }, el("div", {}, `${plural(ms.pending, "uncited sentence")} ${ms.pending === 1 ? "has" : "have"} not been reviewed. Whether a sentence needs a source is Claude's judgement, made in batches of up to 30 (about 2,000 tokens each) when you ask, and remembered by sentence so nothing is judged twice. In a chat with Paper Scout on, say:`),
       el("div", { class: "mini", style: "margin-top:6px" }, el("code", {}, `“${ask}”`), el("button", { class: "linkbtn", type: "button", onclick: (e) => { try { navigator.clipboard.writeText(ask); e.target.textContent = "Copied"; } catch { e.target.textContent = "Select and copy it"; } } }, "Copy"))));
-    if (open.length) gapBody.push(el("p", { class: "missing" }, "Flagged by Claude's reading, or left empty in the draft. Claude can be wrong: dismiss what is your own argument."), ...[...open].sort((a, b) => (a.strength === b.strength ? a.line - b.line : a.strength === "likely" ? -1 : 1)).map(msGap));
+    if (open.length) gapBody.push(el("p", { class: "missing" }, "Flagged by Claude's reading, or left empty in the draft. Claude can be wrong: dismiss what is your own argument."), ...[...open].sort((a, b) => (a.strength === b.strength ? a.line - b.line : a.strength === "likely" ? -1 : 1)).map((g) => msGap(g, ms)));
     else if (!ms.pending) gapBody.push(el("p", { class: "missing" }, "Nothing flagged."));
-    if (gone.length) gapBody.push(el("details", { class: "ms-gone" }, el("summary", {}, `Dismissed (${gone.length})`), el("div", { class: "sec-body", style: "padding-left:0" }, ...gone.map(msGap))));
+    if (gone.length) gapBody.push(el("details", { class: "ms-gone" }, el("summary", {}, `Dismissed (${gone.length})`), el("div", { class: "sec-body", style: "padding-left:0" }, ...gone.map((g) => msGap(g, ms)))));
     if ((ms.own || []).length) gapBody.push(el("details", { class: "ms-gone" }, el("summary", {}, `Claude judged these need no source (${ms.own.length})`), el("div", { class: "sec-body", style: "padding-left:0" },
       ...ms.own.map((g) => el("div", { class: "note" }, el("div", {}, el("div", {}, clipT(g.text, 220)), el("div", { class: "nk" }, [`line ${g.line}`, g.section, g.why ? "Claude: " + g.why : ""].filter(Boolean).join(" · "))),
         canWrite() ? el("button", { class: "linkbtn", type: "button", title: "Let Claude look at this sentence again", onclick: () => msAct({ op: "unjudge", id: g.id }) }, "Ask again") : null)))));
     out.push(section("sec:ms-gaps", "Where it may need sources", ms.pending ? `${plural(open.length, "place")}, ${ms.pending} to review` : plural(open.length, "place"), gapBody));
+    out.push(section("sec:ms-scope", "Scope", ms.scope && (ms.scope.in || ms.scope.out) ? "set" : "not set", msScope(ms)));
     if (ms.notes.length) out.push(section("sec:ms-notes", "Notes in the draft", plural(ms.notes.length, "note"), ms.notes.map((n) => el("div", { class: "note", "data-kind": n.kind === "comment" ? "check" : "supervision" },
       el("div", {}, el("div", {}, n.text || n.comment || "(no text)"), n.context ? el("div", { class: "nk", style: "font-style:italic" }, "On: " + clipT(n.context, 140)) : null,
         el("div", { class: "nk" }, [`line ${n.line}`, n.section, n.kind === "change" ? "tracked " + n.op : n.kind === "todo" ? "to do" : "comment", n.by ? "by " + n.by : ""].filter(Boolean).join(" · ")))))));
@@ -1367,11 +1421,12 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       el("button", { class: "btn", type: "submit", disabled: !d.active || null }, "Search")));
     if (S.outputs._search) out.push(el("div", { class: "notice" }, S.outputs._search));
     if (d.active && d.library) out.push(shelf());
-    const c = { unsorted: 0, kept: 0, maybe: 0, dropped: 0, saved: d.papers.filter((p) => p.saved && p.status !== "dropped").length, all: d.papers.length };
+    const draftKeys = d.map?.manuscript?.inDraft || {};
+    const c = { unsorted: 0, kept: 0, maybe: 0, dropped: 0, saved: d.papers.filter((p) => p.saved && p.status !== "dropped").length, draft: d.papers.filter((p) => draftKeys[p.h]).length, all: d.papers.length };
     for (const p of d.papers) c[p.status || "unsorted"]++;
-    out.push(el("div", { class: "filters" }, ...[["unsorted", "To screen"], ["kept", "Kept"], ["saved", "Saved"], ["maybe", "Maybe"], ["dropped", "Dropped"], ["all", "All"]].map(([k, l]) =>
+    out.push(el("div", { class: "filters" }, ...[["unsorted", "To screen"], ["kept", "Kept"], ["saved", "Saved"], ...(c.draft ? [["draft", "In your draft"]] : []), ["maybe", "Maybe"], ["dropped", "Dropped"], ["all", "All"]].map(([k, l]) =>
       el("button", { type: "button", "aria-pressed": String(S.pfilter === k), onclick: () => { S.pfilter = k; store.set("pfilter", k); render(); } }, l, " ", el("b", {}, c[k])))));
-    const ps = d.papers.filter((p) => S.pfilter === "all" || (S.pfilter === "saved" ? p.saved && p.status !== "dropped" : (p.status || "unsorted") === S.pfilter)).sort((a, b) => Number(b.h.slice(1)) - Number(a.h.slice(1)));
+    const ps = d.papers.filter((p) => S.pfilter === "all" || (S.pfilter === "draft" ? draftKeys[p.h] : S.pfilter === "saved" ? p.saved && p.status !== "dropped" : (p.status || "unsorted") === S.pfilter)).sort((a, b) => Number(b.h.slice(1)) - Number(a.h.slice(1)));
     if (!ps.length) out.push(el("p", { class: "empty" }, d.papers.length ? "Nothing here." : "No papers yet. Search above, or run /paperscout:start on this project."));
     else out.push(el("div", { class: "items" }, ...ps.slice(0, 150).map(paperItem)));
     out.push(el("details", { class: "plain", open: isOpen("log") || null, ontoggle: keepOpen("log") },
@@ -1439,7 +1494,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       el("div", { class: "top" }, chev(open), el("button", { class: "name", type: "button", "aria-expanded": String(open), onclick: () => flip(key) }, p.title || "Untitled"),
         el("div", { class: "pick" }, el("div", { class: "choice", role: "group", "aria-label": "Screening decision" }, ...opts.map(([s, l, v]) => el("button", { type: "button", "data-v": v, "aria-pressed": String(p.status === s), disabled: !d.active || null, onclick: () => mark(p.h, p.status === s ? "clear" : s) }, l))),
           p.status !== "dropped" ? saveBtn(p) : null)),
-      el("div", { class: "indent" }, el("div", { class: "meta" }, ...[who(p.lasts), p.year, isPreprint(p) ? "Preprint" : p.venue, p.cites != null ? `${p.cites} citations` : "", p.ids.zot ? "In Zotero" : "", p.cards.length ? cap(plural(p.cards.length, "card")) : ""].filter(Boolean).map((x) => el("span", {}, x)))));
+      el("div", { class: "indent" }, el("div", { class: "meta" }, ...[who(p.lasts), p.year, isPreprint(p) ? "Preprint" : p.venue, p.cites != null ? `${p.cites} citations` : "", p.ids.zot ? "In Zotero" : "", S.data.map?.manuscript?.inDraft?.[p.h] ? "Cited as " + S.data.map.manuscript.inDraft[p.h] : "", p.cards.length ? cap(plural(p.cards.length, "card")) : ""].filter(Boolean).map((x) => el("span", {}, x)))));
     if (open) {
       const body = el("div", { class: "body" });
       if (p.tldr) body.append(el("p", { style: "margin:0" }, p.tldr));

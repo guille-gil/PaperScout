@@ -7,6 +7,8 @@ argument-hint: <topic, lab, PI or author>
 
 > Research mode: if `../start/references/core.md` has not been read in this task, read it now (and `../start/references/paper-routing.md` before the first paper search) and treat research mode as on for the rest of the task.
 
+> Manuscript: if `map action=show` lists a manuscript, run `map action=manuscript op=scope` first and keep every query within it; prefer `search for=<place>` to a topic search.
+
 # Literature review
 
 Investigate the topic, lab, PI or author given in the arguments as a literature review. Derive a slug and use it for every file in this run.
