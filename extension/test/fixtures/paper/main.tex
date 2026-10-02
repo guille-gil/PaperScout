@@ -1,7 +1,7 @@
 \documentclass{article}
 \usepackage{natbib}
 \usepackage[commandnameprefix=always]{changes}
-\usepackage{todonotes}
+\usepackage{todonotes}\newcommand{\sv}[1]{\textcolor{red}{#1}}
 \begin{document}
 \title{A Fixture for the Manuscript Parser}
 \maketitle
@@ -17,7 +17,7 @@ Hospitals increasingly rely on dashboards \todo{cite}. This sentence is about ou
 
 \section{Method}
 
-Participants were recruited in 2021. Many practitioners \cite{} disagree. Some text with \chadded[id=LM]{added words} and \chdeleted[id=LM]{deleted words} and \chreplaced[id=LM]{newer}{older} wording.
+Participants were recruited in 2021. Many practitioners \cite{} disagree. Some text with \chadded[id=LM]{added words} and \chdeleted[id=LM]{deleted words} and \chreplaced[id=LM]{newer}{older} wording. \sv{Check the sampling date.}
 % TODO: find a source for the sampling claim
 \begin{table}[t]
 \caption{Reviews have shown many things without a citation}

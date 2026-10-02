@@ -88,6 +88,10 @@ nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(-
 .ms-cht { flex: 1 1 260px; }
 .ms-hit { display: grid; gap: 3px; padding-bottom: 8px; border-bottom: 1px solid var(--rule-soft); }
 .ms-hit a { color: var(--ink); text-decoration-color: var(--rule); }
+.ms-ta { width: 100%; box-sizing: border-box; border: 1px solid var(--rule); border-radius: 8px; background: var(--leaf); color: var(--ink); padding: 8px 10px; font: 14px/1.45 var(--sans); resize: vertical; }
+.ms-ta:focus { outline: none; border-color: var(--accent); }
+.ms-round { margin: 6px 0 10px; }
+.ms-round > summary { cursor: pointer; padding: 4px 0; color: var(--ink-2); font-size: 13.5px; }
 .ms-gone { margin-top: 10px; }
 .ms-gone > summary { cursor: pointer; color: var(--ink-2); font-size: 13px; padding: 4px 0; }
 .badge { font: 600 11px/1 var(--sans); background: var(--mark); color: #2A2410; border-radius: 999px; padding: 3px 6px; }
@@ -571,7 +575,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       concepts: m ? Object.values(m.concepts).filter((c) => c.status === "candidate").length + (m.frameworks || []).flatMap((f) => f.edges).filter((e) => e.status === "proposed").length : 0,
       papers: d && d.active ? d.papers.filter((p) => !p.status).length : 0,
       tasks: m ? Object.values(m.tasks || {}).filter((t) => t.status === "doing").length : 0,
-      manuscript: S.data?.map?.manuscript?.gaps || 0,
+      manuscript: (S.data?.map?.manuscript?.gaps || 0) + (S.data?.map?.manuscript?.comments || 0),
     };
   }
 
@@ -688,11 +692,57 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       ms ? msChosen(g, ms) : null, msResults(g));
   }
   function msScope(ms) {
-    const sc = S.ms.scope || (S.ms.scope = { in: ms.scope?.in || "", out: ms.scope?.out || "" });
-    const ta = (k, label, ph, rows) => { const t = el("textarea", { rows, placeholder: ph, "aria-label": label }); t.value = sc[k]; t.addEventListener("input", () => { sc[k] = t.value; }); return el("div", { class: "field" }, el("h4", {}, label), t); };
+    const sc = S.ms.scope || (S.ms.scope = { in: ms.scope?.in || "", out: ms.scope?.out || "", markers: (ms.markers || []).join(", ") });
+    const ta = (k, label, ph, rows) => { const t = el("textarea", { class: "ms-ta", rows, placeholder: ph, "aria-label": label }); t.value = sc[k]; t.addEventListener("input", () => { sc[k] = t.value; }); return el("div", { class: "field" }, el("h4", {}, label), t); };
     return [el("p", { class: "missing" }, "Searches for a sentence skip papers that mention anything on the out-of-scope list, and Claude's workflows keep to what you say is in scope. Both are in your words."),
       ta("in", "In scope", "What this paper is about, in a sentence or two", 2), ta("out", "Out of scope, do not chase", "Topics to ignore, one per line or separated by commas", 2),
-      canWrite() ? el("div", { class: "mini" }, el("button", { class: "btn", type: "button", onclick: async () => { await msAct({ op: "scope", text: sc.in, note: sc.out }); S.ms.scope = null; } }, "Save scope")) : null];
+      el("div", { class: "field" }, el("h4", {}, "Commands that mark notes in your draft"),
+        el("p", { class: "missing", style: "margin-bottom:4px" }, (ms.detectedMarkers || []).filter((m) => !(ms.markers || []).includes(m)).length ? `Found in your draft: ${ms.detectedMarkers.filter((m) => !(ms.markers || []).includes(m)).map((m) => "\\" + m).join(", ")}. ` + "Add others your supervisors use, separated by commas (without the backslash)." : "Macros that colour text (such as \\sv) are found automatically. Add others your supervisors use, separated by commas, without the backslash."),
+        (() => { const i = el("input", { type: "text", class: "ms-path", placeholder: "sv, lm", "aria-label": "Commands that mark notes", value: sc.markers || "" }); i.addEventListener("input", () => { sc.markers = i.value; }); return i; })()),
+      canWrite() ? el("div", { class: "mini" }, el("button", { class: "btn", type: "button", onclick: async () => { await msAct({ op: "scope", text: sc.in, note: sc.out }); await msAct({ op: "markers", text: sc.markers }); S.ms.scope = null; } }, "Save")) : null];
+  }
+  // ----- supervision rounds -----
+  const STATE = { edited: "passage edited since", gone: "passage no longer in the draft" };
+  async function msUpload(file) {
+    if (!file) return;
+    if (file.size > 20e6) { banner("That file is larger than 20 MB.", true); return; }
+    try {
+      const data = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1] || ""); fr.onerror = rej; fr.readAsDataURL(file); });
+      const r = await fetch(`/api/manuscript-upload?t=${TOKEN}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: file.name, data, project: S.viewing && S.data && !S.data.active ? S.viewing : undefined }) });
+      const j = await r.json(); if (!r.ok) throw { message: j.error };
+      banner(j.text); await msRefresh();
+    } catch (e) { banner(errText(e), true); }
+  }
+  function msComment(c) {
+    const place = c.now ? { id: c.now.id, text: "", line: c.now.line } : null;
+    const note = el("div", { class: "note", "data-kind": c.state === "done" ? null : "supervision" },
+      el("div", {}, el("div", {}, c.text), c.quote ? el("div", { class: "nk", style: "font-style:italic" }, "On: " + clipT(c.quote, 160)) : null,
+        el("div", { class: "nk" }, [c.id, c.by, c.date, c.now ? `line ${c.now.line}` : "", c.now ? c.now.section : "", STATE[c.state] || (c.anchor ? "" : "not matched to a sentence")].filter(Boolean).join(" \u00b7 ")),
+        el("div", { class: "mini", style: "margin-top:4px" },
+          place && canWrite() && !S.ms.find[place.id] ? el("button", { class: "btn small", type: "button", onclick: () => msFind({ id: place.id }) }, "Find papers") : null,
+          canWrite() ? el("button", { class: "linkbtn", type: "button", onclick: () => act("map", { action: "task", text: `${c.by ? c.by + ": " : ""}${c.text}${c.now ? ` (line ${c.now.line})` : ""}`, kind: "write", about: "" }).then(() => banner("Added to Tasks.")).catch(() => {}) }, "Add to Tasks") : null)),
+      canWrite() ? el("button", { class: "linkbtn", type: "button", onclick: () => msAct({ op: "resolve", id: c.id, status: c.state === "done" ? "open" : "done" }) }, c.state === "done" ? "Reopen" : "Done") : null);
+    return el("div", { class: "ms-gap" }, note, place ? msResults({ id: place.id }) : null);
+  }
+  function msSupervision(ms) {
+    const rounds = ms.rounds || [];
+    const open = rounds.reduce((n, r) => n + r.comments.filter((c) => c.state !== "done").length, 0);
+    const ta = el("textarea", { class: "ms-ta", rows: "4", placeholder: "Paste comments here: separate them with a blank line. A line starting with > quotes the passage, and by: NAME names the author.", "aria-label": "Pasted supervisor comments" });
+    ta.value = S.ms.paste || ""; ta.addEventListener("input", () => { S.ms.paste = ta.value; });
+    const file = el("input", { type: "file", accept: ".pdf,.docx", "aria-label": "A Word or PDF file with comments", style: "display:none", onchange: (e) => { msUpload(e.target.files[0]); e.target.value = ""; } });
+    const body = [];
+    if (canWrite()) body.push(el("div", { class: "field" }, el("h4", {}, "Add a round of comments"), ta,
+      el("div", { class: "mini", style: "margin-top:6px" }, el("button", { class: "btn", type: "button", onclick: async () => { const t = S.ms.paste.trim(); if (!t) return; try { banner(await call("map", { action: "manuscript", op: "intake", text: t })); S.ms.paste = ""; await msRefresh(); } catch (e) { banner(errText(e), true); } } }, "Add pasted comments"),
+        el("button", { class: "btn", type: "button", onclick: () => file.click() }, "Read a Word or PDF file"), file),
+      el("p", { class: "missing", style: "margin-top:6px" }, "Word comments and PDF annotations are read on your Mac, with the passage each one covers. Nothing is uploaded anywhere.")));
+    for (const rd of [...rounds].reverse()) {
+      const left = rd.comments.filter((c) => c.state !== "done").length;
+      body.push(el("details", { class: "ms-round", open: left > 0 || null },
+        el("summary", {}, `${rd.id} \u00b7 ${fmtDate(rd.date)} \u00b7 ${rd.source}${rd.file ? " " + rd.file : ""} \u00b7 ${plural(rd.comments.length, "comment")}, ${left} open`),
+        el("div", { class: "sec-body", style: "padding-left:0" }, ...[...rd.comments].sort((a, b) => (a.state === "done") - (b.state === "done")).map(msComment))));
+    }
+    if (!rounds.length) body.push(el("p", { class: "missing" }, "No comments recorded yet."));
+    return section("sec:ms-sup", "Supervision", rounds.length ? `${plural(open, "open comment")}, ${plural(rounds.length, "round")}` : "none yet", body);
   }
   function viewManuscript() {
     const ms = S.ms.data;
@@ -714,13 +764,16 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
     const gapBody = [];
     if (ms.pending) gapBody.push(el("div", { class: "ms-ask" }, el("div", {}, `${plural(ms.pending, "uncited sentence")} ${ms.pending === 1 ? "has" : "have"} not been reviewed. Whether a sentence needs a source is Claude's judgement, made in batches of up to 30 (about 2,000 tokens each) when you ask, and remembered by sentence so nothing is judged twice. In a chat with Paper Scout on, say:`),
       el("div", { class: "mini", style: "margin-top:6px" }, el("code", {}, `“${ask}”`), el("button", { class: "linkbtn", type: "button", onclick: (e) => { try { navigator.clipboard.writeText(ask); e.target.textContent = "Copied"; } catch { e.target.textContent = "Select and copy it"; } } }, "Copy"))));
+    if (ms.pendingSupport) { const q = "Check whether my citations support their sentences"; gapBody.push(el("div", { class: "ms-ask" }, el("div", {}, `${plural(ms.pendingSupport, "cited sentence")} ${ms.pendingSupport === 1 ? "has" : "have"} not been checked against ${ms.pendingSupport === 1 ? "its source" : "their sources"}. Claude reads them in batches of 8 with what is known of each paper (about 1,000 tokens a batch). Say:`),
+      el("div", { class: "mini", style: "margin-top:6px" }, el("code", {}, `\u201c${q}\u201d`), el("button", { class: "linkbtn", type: "button", onclick: (e) => { try { navigator.clipboard.writeText(q); e.target.textContent = "Copied"; } catch { e.target.textContent = "Select and copy it"; } } }, "Copy")))); }
     if (open.length) gapBody.push(el("p", { class: "missing" }, "Flagged by Claude's reading, or left empty in the draft. Claude can be wrong: dismiss what is your own argument."), ...[...open].sort((a, b) => (a.strength === b.strength ? a.line - b.line : a.strength === "likely" ? -1 : 1)).map((g) => msGap(g, ms)));
     else if (!ms.pending) gapBody.push(el("p", { class: "missing" }, "Nothing flagged."));
     if (gone.length) gapBody.push(el("details", { class: "ms-gone" }, el("summary", {}, `Dismissed (${gone.length})`), el("div", { class: "sec-body", style: "padding-left:0" }, ...gone.map((g) => msGap(g, ms)))));
     if ((ms.own || []).length) gapBody.push(el("details", { class: "ms-gone" }, el("summary", {}, `Claude judged these need no source (${ms.own.length})`), el("div", { class: "sec-body", style: "padding-left:0" },
       ...ms.own.map((g) => el("div", { class: "note" }, el("div", {}, el("div", {}, clipT(g.text, 220)), el("div", { class: "nk" }, [`line ${g.line}`, g.section, g.why ? "Claude: " + g.why : ""].filter(Boolean).join(" · "))),
         canWrite() ? el("button", { class: "linkbtn", type: "button", title: "Let Claude look at this sentence again", onclick: () => msAct({ op: "unjudge", id: g.id }) }, "Ask again") : null)))));
-    out.push(section("sec:ms-gaps", "Where it may need sources", ms.pending ? `${plural(open.length, "place")}, ${ms.pending} to review` : plural(open.length, "place"), gapBody));
+    out.push(section("sec:ms-gaps", "Where it may need sources", ms.pending || ms.pendingSupport ? `${plural(open.length, "place")}, ${(ms.pending || 0) + (ms.pendingSupport || 0)} to review` : plural(open.length, "place"), gapBody));
+    out.push(msSupervision(ms));
     out.push(section("sec:ms-scope", "Scope", ms.scope && (ms.scope.in || ms.scope.out) ? "set" : "not set", msScope(ms)));
     if (ms.notes.length) out.push(section("sec:ms-notes", "Notes in the draft", plural(ms.notes.length, "note"), ms.notes.map((n) => el("div", { class: "note", "data-kind": n.kind === "comment" ? "check" : "supervision" },
       el("div", {}, el("div", {}, n.text || n.comment || "(no text)"), n.context ? el("div", { class: "nk", style: "font-style:italic" }, "On: " + clipT(n.context, 140)) : null,
@@ -1665,6 +1718,7 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
   const CMDS = [
     ["/paperscout:start", "Turn on research mode for this task, connect the project and get the Desk link."],
     ["/paperscout:desk", "Reopen the Desk in the browser pane; add \"browser\" to open it in your own browser, where it stays between chats."],
+    ["/paperscout:cite <section>", "A citation pass over your linked draft: which sentences need a source, whether cited papers support theirs, and papers for the flagged places."],
     ["/paperscout:ask <question>", "A quick answer from the literature: verdict, positions, debate and a reading list, saved to the map."],
     ["/paperscout:lit <topic>", "A literature review of a topic, lab or author, with citations and provenance."],
     ["/paperscout:deepresearch <question>", "A thorough, cited brief; you approve the plan first."],

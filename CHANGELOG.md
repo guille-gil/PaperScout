@@ -2,6 +2,23 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.24.0 (2026-10-02)
+
+Supervisors' comments, and a check on what you cite.
+
+### Paper Scout
+- **Supervision rounds.** Add a round of comments to the Manuscript tab by pasting them, or by reading a Word file (its comments and the passage each covers) or a PDF (its annotations and the text under them). Files are read on your Mac, never stored or uploaded. Each comment is anchored to the sentence of your draft it is about, and every round is kept with its date and source. Importing the same comments twice adds nothing.
+- Each comment shows where its passage is now. If you have edited the sentence since, it says *passage edited since*; if the sentence is gone, *no longer in the draft*, so you can tell what is probably dealt with. Mark comments done, add one to Tasks, or **Find papers** for the sentence it is about.
+- For Claude: `map action=manuscript op=comments` lists the open comments with their places (capped at 12), and `op=intake` records pasted comments, which Claude splits into blocks, or a `.docx` or `.pdf` path.
+- **Citation checks.** `op=support` gives Claude up to 8 cited sentences with what is known of each cited paper (title, year, TLDR) and asks whether the paper supports the sentence: `ok`, `weak`, `no` or `unclear`. Weak and doubtful ones are flagged on the tab like any other place. About 1,000 tokens a batch; remembered by sentence and by its citations, so adding or changing a citation brings the sentence back for checking.
+- **Your own marker macros.** A macro your draft defines to colour or flag text (for example `\newcommand{\sv}[1]{\textcolor{red}{#1}}`) is found automatically and its contents count as notes, not as your prose. Other commands can be named on the Desk.
+- Find papers says when three or more papers are already chosen for a place ("probably enough").
+- Tests for the readers (Word, PDF, pasted text), anchoring and the support checks; the PDF and Word fixtures are small synthetic files.
+
+### Paper Scout for Cowork (0.17.0)
+- **`/paperscout:cite`**: a citation pass over the linked draft within a budget (at most 2 review batches, 1 support batch, 5 places searched, about 40 calls): judge, check what is cited, find papers for the flagged places, report briefly, never edit the draft.
+- The manuscript rules moved to their own file, `references/manuscript.md`, read only when a draft is linked, so `core.md` stays about as short as in 0.20.0.
+
 ## 0.23.0 (2026-10-02)
 
 Search starts from your sentence, not from a topic.
