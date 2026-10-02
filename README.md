@@ -68,7 +68,7 @@ The definitions themselves are kept verbatim, with their source, year and where 
 
 ### Frameworks 🗺️
 
-Few arguments rest on a single chain of cause and effect, so a project can hold several frameworks side by side: your main account, a rival explanation, the model a key paper proposes. Drag boxes around, pull an arrow from the handle of one to another and say what the link is: influences, moderates, enables, constrains, precedes, part of, a plain association or a verb of your own. Label arrows as hypotheses (H1, H2…). The line style shows how solid each one is: solid when supported, dashed without evidence yet, red when contested. Claude's suggestions arrive dotted, for you to accept or reject.
+Few arguments rest on a single chain of cause and effect, so a project can hold several frameworks side by side: your main account, a rival explanation, the model a key paper proposes. Drag boxes around, pull an arrow from the handle of one to another and say what the link is: influences, moderates, enables, constrains, precedes, part of, a plain association or a verb of your own. Label arrows as hypotheses (H1, H2…). The line style shows how solid each one is: solid when supported, dashed without evidence yet, red when contested.
 
 <p align="center"><img src="docs/images/framework.png" alt="A conceptual framework" width="85%"></p>
 
@@ -173,7 +173,7 @@ Open `paperscout.plugin` with the Claude desktop app, then type `/paperscout:sta
 
 The Desk opens in Claude's browser pane. To keep it open between chats, press **Pop out** on the Desk: it moves to your own browser, where it stays available whenever Claude is running.
 
-The full list appears when you run `/paperscout:start`, and the **Commands** button on the Research Desk keeps it one click away.
+The full list, with what each command does, is under the **Commands** button on the Research Desk.
 
 <p align="center"><img src="docs/images/commands.png" alt="The Commands panel on the Research Desk" width="55%"></p> Outside those commands you can simply talk to Claude: "add this as a concept", "record this as the new version of the idea", "what supports claim K2?".
 
