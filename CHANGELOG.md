@@ -2,6 +2,73 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.24.0 (2026-10-02)
+
+Supervisors' comments, and a check on what you cite.
+
+### Paper Scout
+- **Supervision rounds.** Add a round of comments to the Manuscript tab by pasting them, or by reading a Word file (its comments and the passage each covers) or a PDF (its annotations and the text under them). Files are read on your Mac, never stored or uploaded. Each comment is anchored to the sentence of your draft it is about, and every round is kept with its date and source. Importing the same comments twice adds nothing.
+- Each comment shows where its passage is now. If you have edited the sentence since, it says *passage edited since*; if the sentence is gone, *no longer in the draft*, so you can tell what is probably dealt with. Mark comments done, add one to Tasks, or **Find papers** for the sentence it is about.
+- For Claude: `map action=manuscript op=comments` lists the open comments with their places (capped at 12), and `op=intake` records pasted comments, which Claude splits into blocks, or a `.docx` or `.pdf` path.
+- **Citation checks.** `op=support` gives Claude up to 8 cited sentences with what is known of each cited paper (title, year, TLDR) and asks whether the paper supports the sentence: `ok`, `weak`, `no` or `unclear`. Weak and doubtful ones are flagged on the tab like any other place. About 1,000 tokens a batch; remembered by sentence and by its citations, so adding or changing a citation brings the sentence back for checking.
+- **Your own marker macros.** A macro your draft defines to colour or flag text (for example `\newcommand{\sv}[1]{\textcolor{red}{#1}}`) is found automatically and its contents count as notes, not as your prose. Other commands can be named on the Desk.
+- Find papers says when three or more papers are already chosen for a place ("probably enough").
+- Tests for the readers (Word, PDF, pasted text), anchoring and the support checks; the PDF and Word fixtures are small synthetic files.
+
+### Paper Scout for Cowork (0.17.0)
+- **`/paperscout:cite`**: a citation pass over the linked draft within a budget (at most 2 review batches, 1 support batch, 5 places searched, about 40 calls): judge, check what is cited, find papers for the flagged places, report briefly, never edit the draft.
+- The manuscript rules moved to their own file, `references/manuscript.md`, read only when a draft is linked, so `core.md` stays about as short as in 0.20.0.
+
+## 0.23.0 (2026-10-02)
+
+Search starts from your sentence, not from a topic.
+
+### Paper Scout
+- **Find papers for a flagged place.** On the Manuscript tab each flagged sentence has a Find papers button. Paper Scout builds a short query from the sentence and its section, pools Zotero and Semantic Scholar (OpenAlex when thin), ranks the pool locally against the sentence, and shows a shortlist of at most 5 with a fit score, the terms that matched, and a note when your draft already cites the paper. Off-topic results are hidden and counted. It runs on the Desk, so it costs Claude nothing; in a chat, `search for=<place>` does the same (with `query=` for your own wording).
+- **Use for this sentence** chooses a paper for a place (and keeps it); **Not this** drops it so it does not come back. Chosen papers show under the sentence with the citation to copy, or **Add to .bib**, which appends the paper's BibTeX entry to the end of the .bib your draft names (after a confirmation, never changing what is already there, with a unique key). This is the only thing Paper Scout ever writes to your files.
+- **Scope.** Say in your own words what the paper is about and what is out of scope. Searches for a sentence skip papers mentioning anything on the out-of-scope list and report how many; `map action=manuscript op=scope` gives Claude a short brief of the draft (title, abstract, sections, what it already cites, your scope).
+- **Working set.** The Papers tab gets an In your draft filter, and papers show the key they are cited as.
+- Tests for the search pipeline run against canned API responses, so they need no network.
+
+### Paper Scout for Cowork (0.16.0)
+- `lit`, `deepresearch` and `ask` start from the draft's scope when a manuscript is linked; the manuscript rule explains `search for=`.
+
+## 0.22.0 (2026-10-02)
+
+### Paper Scout
+- **Claude decides which sentences need a source, not a rule list.** The wording rules of 0.21.0 are gone. Paper Scout still does the structural work locally (sections, which sentences already cite, notes, empty `\cite{}`, the `.bib`), and hands Claude the uncited sentences in small batches when you ask: `map action=manuscript op=review` returns at most 30 sentences (`about=` narrows to a section), with the neighbours' citations flagged, and `op=judge` records a verdict per sentence (`cite`, `maybe` or `own`) with a short reason.
+- Verdicts are remembered by sentence, so nothing is judged twice and a sentence you edit comes back for review by itself. A batch costs about 2,000 tokens; a whole short paper, a few thousand. Nothing is judged unless you ask.
+- The Manuscript tab shows Claude's reasons next to each flag, how many uncited sentences are still unreviewed (with the sentence to say to Claude), and a collapsed list of the sentences Claude judged to need no source, each with "Ask again". You can still dismiss any flag. Notes asking for a source are no longer guessed from their wording: they appear with the sentence they sit on, and Claude reads them with it.
+- Tool definitions: about 70 tokens more than 0.20.0 for the whole manuscript feature (2,396 in all, against 2,634 before the 0.20.0 diet).
+
+### Paper Scout for Cowork (0.15.0)
+- The manuscript rule now describes the review and judge cycle and its token cost.
+
+## 0.21.0 (2026-10-02)
+
+Keeping the literature close to the writing: Paper Scout now reads the draft you are working on.
+
+### Paper Scout
+- **Manuscript.** Link your LaTeX draft (Paper Scout offers the `.tex` files it finds in the project folder, or you give a path) and a new Manuscript tab on the Research Desk shows where the argument still needs sources: sentences that read like a statement about prior work and carry no citation, empty `\cite{}` placeholders, and notes asking for a source (`\todo`, the `changes` package, `% TODO` comments). It also shows the outline with citations per section, cited keys missing from the `.bib`, `.bib` entries never cited, and which cited papers are already in your Papers.
+- It follows `\input` and `\include`, finds the `.bib` from `\bibliography` or `\addbibresource`, and works with natbib, biblatex and `\cite` variants. Only `.tex` and `.bib` files are read, and Paper Scout never writes to them.
+- The reading is local and free: nothing on the tab costs Claude tokens. Claude is shown one line in `map action=show` and, on request, `map action=manuscript op=gaps`, a list capped at 10 places (`about=` narrows to a section, `limit` up to 25). The tool definitions grow by about 50 tokens.
+- The wording heuristics are guesses, and they are kept cautious: sections that are your own argument (findings, discussion, conclusion) are not checked, a neighbouring citation downgrades a guess, and anything can be dismissed (and restored) on the Desk.
+- Tests for the parser: `npm test` in `extension/`.
+
+### Paper Scout for Cowork (0.14.0)
+- A rule for the manuscript: Claude treats the `.tex` and `.bib` as read-only, and uses the capped gap list when you ask what the draft still needs.
+
+## 0.20.0 (2026-10-02)
+
+A lighter Paper Scout: less context loaded in every conversation, fewer tokens spent per workflow.
+
+### Paper Scout
+- The `map` tool definition no longer carries the framework and ontology parameters, so Claude's tool definitions are about 300 tokens shorter in every conversation and in every subagent. Frameworks and the ontology are unchanged on the Research Desk, where you draw and edit them; only Claude's ability to propose edges and placements is gone.
+
+### Paper Scout for Cowork (0.13.0)
+- `/paperscout:lit` and `/paperscout:deepresearch` search directly by default instead of launching researchers, verifier and reviewer subagents, each of which pays again for the tool definitions and its own searches. Fan-out happens when you ask for it or the work splits into clearly separate areas, and the plan states a call budget (about 30 calls direct) that Claude stops at and reports.
+- `/paperscout:start` no longer prints the list of commands, which is on the Desk under Commands. The start skill and the map rules are shorter by about a thousand tokens (the framework and ontology rules are gone).
+
 ## 0.19.0 (2026-09-28)
 
 ### Paper Scout

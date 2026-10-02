@@ -1,0 +1,27 @@
+\documentclass{article}
+\usepackage{natbib}
+\usepackage[commandnameprefix=always]{changes}
+\usepackage{todonotes}\newcommand{\sv}[1]{\textcolor{red}{#1}}
+\begin{document}
+\title{A Fixture for the Manuscript Parser}
+\maketitle
+
+\section{Introduction}
+
+Prior studies have shown that automated triage reduces handling time by 30\%. We argue that the effect depends on the setting. Smith et al. report a smaller effect \citep[p.~4]{Smith2020}. \todo{Is this the right paper?}
+
+The field has long treated triage as a purely technical problem. \chcomment[id=SV]{Who says this? Please add a source.}
+Hospitals increasingly rely on dashboards \todo{cite}. This sentence is about our own design and needs nothing.
+
+\input{sections/related}
+
+\section{Method}
+
+Participants were recruited in 2021. Many practitioners \cite{} disagree. Some text with \chadded[id=LM]{added words} and \chdeleted[id=LM]{deleted words} and \chreplaced[id=LM]{newer}{older} wording. \sv{Check the sampling date.}
+% TODO: find a source for the sampling claim
+\begin{table}[t]
+\caption{Reviews have shown many things without a citation}
+\end{table}
+
+\bibliography{refs}
+\end{document}

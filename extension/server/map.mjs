@@ -2,10 +2,12 @@
 // ledger's papers (P12) and evidence cards (P12#3). Stored as notes/research-map.json in the project folder,
 // with a readable research-map.md regenerated on every change. Claude proposes; the user decides.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync } from "node:fs";
-import { join, dirname, basename, resolve as resolvePath } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, renameSync, readdirSync, statSync } from "node:fs";
+import { join, dirname, basename, isAbsolute, relative, resolve as resolvePath } from "node:path";
 import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
+import { docxComments, pdfComments, parsePasted, anchorTo, passageState, commentHash, clip as clipC } from "./comments.mjs";
+import { parseManuscript, findManuscripts, gapReport, summaryLine, applyState, reviewBatch, supportBatch, parseVerdicts, scopeBrief, splitList } from "./manuscript.mjs";
 
 const oneLine = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 const clip = (s, n) => { s = oneLine(s); return s.length <= n ? s : s.slice(0, n).replace(/\s+\S*$/, "") + "…"; };
@@ -98,8 +100,8 @@ export class ResearchMap {
       const other = this.ctx.ledger.peek(project);
       if (!other) throw new Error(`no project named "${project}"`);
       file = other.folder ? notesFile(other.folder) : join(this.ctx.cacheDir, "maps", other.name.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase() + ".json");
-      this.readOnly = true;
-    } else { file = this.path().file; this.readOnly = false; }
+      this.readOnly = true; this.folder = other.folder || "";
+    } else { file = this.path().file; this.readOnly = false; this.folder = st.folder || ""; }
     this.file = file;
     let m = null;
     if (existsSync(file)) { try { m = JSON.parse(readFileSync(file, "utf8")); } catch (e) { throw new Error(`research-map.json could not be read (${e.message}); fix or move it before writing`); } }
@@ -257,6 +259,7 @@ export class ResearchMap {
         `Concepts: ${count("adopted")} adopted, ${count("candidate")} candidate, ${count("parked")} parked, ${count("dropped")} dropped. Definitions ${Object.keys(m.definitions).length}. Claims ${Object.keys(m.claims).length}. Questions ${Object.keys(m.questions).length}. Versions ${m.versions.length}.`,
         ...this.flags().map((f) => `! ${f}`),
         (m.repos || []).length ? `Code: ${m.repos.map((r) => `${r.label} (${r.path})`).join("; ")} (map action=repo op=brief for an overview, on demand)` : "",
+        this.manuscriptLine(),
         Object.values(m.notes).some((n) => n.status === "open") ? `Open notes from the user: ${Object.entries(m.notes).filter(([, n]) => n.status === "open").map(([k]) => k).join(" ")} (map action=notes)` : ""].filter(Boolean).join("\n");
     }
     if (action === "concepts") {
@@ -538,6 +541,7 @@ export class ResearchMap {
     }
     if (action === "focus") return this.focus(a);
     if (action === "repo") return this.repoOp(a);
+    if (action === "manuscript") return this.manuscriptOp(a);
     if (action === "version") {
       const v = m.versions.find((x) => x.v === String(a.id || "").toLowerCase());
       if (!v) throw new Error(`unknown version ${a.id}`);
@@ -602,6 +606,209 @@ export class ResearchMap {
     return out.join("\n");
   }
   // ---------- code linked to the project ----------
+  // The user's LaTeX draft. It is linked once (the Desk offers the .tex files it finds in the project folder), then
+  // read locally on demand. Which uncited sentences want a source is for Claude to judge, in small batches and only
+  // on request (op=review, then op=judge); the verdicts are kept here by sentence, so nothing is judged twice.
+  // Claude is never shown the whole draft, and nothing here writes to it.
+  manuscriptTarget() {
+    const m = this.m, folder = this.folder || "";
+    const set = m.manuscript?.path;
+    if (set) return { path: resolvePath(isAbsolute(set) ? set : join(folder || ".", set)), linked: true };
+    if (folder) { const found = findManuscripts(folder); return found.length === 1 ? { path: found[0], linked: false, found } : { path: "", linked: false, found }; }
+    return { path: "", linked: false, found: [] };
+  }
+  manuscriptParse() {
+    const t = this.manuscriptTarget();
+    if (!t.path) return { t, r: null };
+    try { return { t, r: parseManuscript(t.path, { markers: this.m.manuscript?.markers || [] }) }; } catch (e) { return { t, r: null, error: e.message }; }
+  }
+  msState() { const x = this.m.manuscript || {}; return { verdicts: x.verdicts || {}, dismissed: x.dismissed || [], attach: x.attach || {}, scope: x.scope || { in: "", out: "" }, rounds: x.rounds || [], nextSC: x.nextSC || 1, markers: x.markers || [] }; }
+  msSave(patch) {
+    const keep = (o, n) => Object.fromEntries(Object.entries(o).slice(-n));
+    const x = { path: "", dismissed: [], verdicts: {}, attach: {}, scope: { in: "", out: "" }, rounds: [], nextSC: 1, markers: [], ...(this.m.manuscript || {}), ...patch };
+    x.dismissed = [...new Set(x.dismissed)].slice(-500); x.verdicts = keep(x.verdicts, 2000); x.attach = keep(x.attach, 500);
+    for (const k of Object.keys(x.attach)) if (!x.attach[k].length) delete x.attach[k];
+    if (!x.path && !x.dismissed.length && !Object.keys(x.verdicts).length && !Object.keys(x.attach).length && !x.scope.in && !x.scope.out && !x.rounds.length && !x.markers.length) delete this.m.manuscript; else this.m.manuscript = x;
+    this.save();
+  }
+  // A flagged place or candidate sentence by id, with what a search for it needs.
+  manuscriptFor(ref) {
+    this.load();
+    const { t, r } = this.manuscriptParse();
+    const id = oneLine(ref).replace(/^#/, "");
+    const hit = r ? r.candidates.find((c) => c.id === id) || r.gaps.find((g) => g.id === id) || r.all.find((c) => c.id === id) || (r.cited || []).find((c) => c.id === id) : null;
+    return { t, r, hit, title: r?.title || "", scope: this.msState().scope };
+  }
+  // How a paper already cited in the draft can be recognised: by DOI, arXiv id or normalised title.
+  manuscriptBibIndex() {
+    const { r } = this.manuscriptParse(), idx = {};
+    if (!r) return idx;
+    const nt = (x) => String(x || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "").slice(0, 90);
+    for (const [k, b] of Object.entries(r.bib)) { if (b.doi) idx["doi:" + b.doi.toLowerCase()] = k; if (b.arxiv) idx["arxiv:" + b.arxiv.toLowerCase()] = k; if (nt(b.title).length > 20) idx["t:" + nt(b.title)] = k; }
+    return idx;
+  }
+  bibKeyFor(p, idx = this.manuscriptBibIndex()) {
+    const nt = String(p.title || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "").slice(0, 90);
+    return (p.ids?.doi && idx["doi:" + p.ids.doi.toLowerCase()]) || (p.ids?.arxiv && idx["arxiv:" + p.ids.arxiv.toLowerCase()]) || (nt.length > 20 && idx["t:" + nt]) || "";
+  }
+  // What is known of each cited paper, for checking whether it supports its sentence.
+  supportInfo(r) {
+    const idx = this.manuscriptBibIndex(), byKey = {};
+    for (const h of Object.keys(this.ctx.ledger.ensure().papers)) { const p = this.ctx.ledger.get(h); const k = this.bibKeyFor(p, idx); if (k) byKey[k] = { h, tldr: p.tldr || "" }; }
+    return Object.fromEntries(Object.entries(r.bib).map(([k, b]) => [k, { title: b.title, year: b.year, h: byKey[k]?.h || "", tldr: byKey[k]?.tldr || "" }]));
+  }
+  // Supervision comments, each with what became of its passage since it was made.
+  commentsNow(r) {
+    const sents = r ? r.all : [], rounds = this.msState().rounds;
+    return rounds.map((rd) => ({ ...rd, comments: rd.comments.map((c) => {
+      const ps = c.status === "done" ? { state: "done", at: null } : passageState(c.anchor, sents);
+      return { ...c, state: ps.state, now: ps.at ? { id: ps.at.id, line: ps.at.line, section: ps.at.section } : null };
+    }) }));
+  }
+  openComments(r) { return this.commentsNow(r).flatMap((rd) => rd.comments.map((c) => ({ ...c, round: rd.id }))).filter((c) => c.state !== "done"); }
+  manuscriptLine() {
+    const { r } = this.manuscriptParse();
+    if (!r) return "";
+    const oc = this.openComments(r).length;
+    return `Manuscript ${summaryLine(r, this.msState())}${oc ? `, ${oc} open supervisor comments (op=comments)` : ""} (map action=manuscript op=review|gaps)`;
+  }
+  manuscriptSummary() {
+    const { t, r, error } = this.manuscriptParse();
+    const a = r ? applyState(r, this.msState()) : null;
+    const inDraft = {};
+    if (r) { const idx = this.manuscriptBibIndex(); for (const h of Object.keys(this.ctx.ledger.ensure().papers)) { const k = this.bibKeyFor(this.ctx.ledger.get(h), idx); if (k) inDraft[h] = k; } }
+    return { path: t.path, linked: t.linked, found: t.found || [], error: error || "", gaps: a ? a.open.length : 0, pending: a ? a.pending : 0, notes: r ? r.notes.length : 0, comments: this.openComments(r).length, inDraft };
+  }
+  async manuscriptOp(a) {
+    const m = this.m, op = a.op || "show", st = this.msState();
+    if (op === "set") {
+      const raw = oneLine(a.path); if (!raw) throw new Error("manuscript set needs path (the main .tex file)");
+      const home = raw.replace(/^~(?=\/|$)/, homedir());
+      const abs = resolvePath(isAbsolute(home) ? home : join(this.folder || ".", raw));
+      if (!/\.tex$/i.test(abs) || !existsSync(abs) || !statSync(abs).isFile()) throw new Error(`${abs} is not a .tex file on this Mac`);
+      const r = parseManuscript(abs);
+      const rel = this.folder ? relative(this.folder, abs) : "";
+      this.msSave({ path: rel && !rel.startsWith("..") && !isAbsolute(rel) ? rel : abs });
+      return `Linked ${basename(abs)}. ${summaryLine(r, this.msState())}`;
+    }
+    if (op === "clear") { this.msSave({ path: "" }); return "Manuscript unlinked; the file itself was not touched."; }
+    if (op === "dismiss" || op === "restore") {
+      const id = oneLine(a.id).replace(/^#/, ""); if (!/^[GS][0-9a-f]{6}$/.test(id)) throw new Error("dismiss and restore need a place id such as G1a2b3c");
+      const set = new Set(st.dismissed); if (op === "dismiss") set.add(id); else set.delete(id);
+      this.msSave({ dismissed: [...set] }); return op === "dismiss" ? `Dismissed ${id}.` : `Restored ${id}.`;
+    }
+    if (op === "attach" || op === "detach") {
+      const id = oneLine(a.id).replace(/^#/, ""), h = oneLine(a.handle).toUpperCase();
+      if (!/^[GS][0-9a-f]{6}$/.test(id) || !/^P\d+$/.test(h)) throw new Error("attach and detach need id (a place, G1a2b3c) and handle (P12)");
+      const cur = new Set(st.attach[id] || []); if (op === "attach") cur.add(h); else cur.delete(h);
+      this.msSave({ attach: { ...st.attach, [id]: [...cur] } }); return op === "attach" ? `${h} chosen for ${id}.` : `${h} removed from ${id}.`;
+    }
+    if (op === "scope" && (a.text !== undefined || a.note !== undefined)) {
+      const sc = { ...st.scope };
+      if (a.text !== undefined) sc.in = oneLine(a.text).slice(0, 600);
+      if (a.note !== undefined) sc.out = String(a.note).split(/\n/).map(oneLine).filter(Boolean).join(", ").slice(0, 600);
+      this.msSave({ scope: sc }); return "Scope saved.";
+    }
+    if (op === "bib_add") {
+      // The one place Paper Scout writes to the user's files: appends an entry to the .bib named in the draft, on request.
+      const { r } = this.manuscriptParse(); if (!r) throw new Error("no manuscript linked");
+      const h = oneLine(a.handle).toUpperCase(); const p = this.ctx.ledger.get(h); if (!p) throw new Error(`${h} is not in this project`);
+      const had = this.bibKeyFor(p); if (had) return `Already in the .bib as ${had}: \\citep{${had}}`;
+      const file = r.bibFiles.find((f) => existsSync(f)); if (!file) throw new Error("the draft names no .bib file that exists on this Mac");
+      const j = JSON.parse(await this.ctx.bibtex([h]));
+      let key = j.keys[h], entry = j.entries[0]; if (!key || !entry) throw new Error("could not build a BibTeX entry for " + h);
+      let k2 = key, n = 0; while (r.bib[k2]) k2 = key + "abcdefghij"[n++];
+      if (k2 !== key) entry = entry.replace(key, k2);
+      const cur = readFileSync(file, "utf8");
+      appendFileSync(file, `${cur.endsWith("\n") ? "" : "\n"}\n% Added by Paper Scout ${today()}\n${entry.trim()}\n`);
+      return `Added ${k2} to ${basename(file)}: \\citep{${k2}}`;
+    }
+    if (op === "intake") return this.intake(a);
+    if (op === "markers") {
+      const names = String(a.text || "").split(/[\s,;]+/).map((x) => x.replace(/^\\/, "")).filter((x) => /^[A-Za-z]{1,20}$/.test(x)).slice(0, 20);
+      this.msSave({ markers: names }); return names.length ? `Commands treated as notes: ${names.map((n) => "\\\\" + n).join(", ")}.` : "No extra marker commands.";
+    }
+    if (op === "resolve") {
+      const id = oneLine(a.id).toUpperCase(); const status = a.status === "open" ? "open" : "done";
+      let hit = false;
+      const rounds = st.rounds.map((rd) => ({ ...rd, comments: rd.comments.map((c) => { if (c.id !== id) return c; hit = true; return { ...c, status }; }) }));
+      if (!hit) throw new Error(`no supervisor comment ${id}`);
+      this.msSave({ rounds }); return `${id} marked ${status}.`;
+    }
+    if (op === "unjudge") { const id = oneLine(a.id).replace(/^#/, ""); const v = { ...st.verdicts }; delete v[id]; this.msSave({ verdicts: v }); return `${id} will be reviewed again.`; }
+    const { t, r, error } = this.manuscriptParse();
+    if (op === "data") return JSON.stringify(this.manuscriptData(t, r, error));
+    if (!r) return error ? `The manuscript could not be read: ${error}` : t.found?.length ? `No manuscript linked. Found: ${t.found.map((f) => basename(f)).join(", ")}. Link one with map action=manuscript op=set path=...` : "No manuscript linked (a .tex draft in the project folder, or op=set path=...).";
+    if (op === "scope") return scopeBrief(r, st);
+    if (op === "support") return supportBatch(r, { ...st, section: a.about || a.section, limit: a.limit, info: this.supportInfo(r) });
+    if (op === "comments") {
+      const list = this.openComments(r), limit = Math.max(1, Math.min(Number(a.limit) || 12, 25));
+      if (!list.length) return st.rounds.length ? "No open supervisor comments." : "No supervisor comments recorded (op=intake with text, or a Word or PDF path).";
+      return [`${list.length} open supervisor comments${list.length > limit ? `, first ${limit}` : ""}. To find papers for one, search for=<place>.`,
+        ...list.slice(0, limit).map((c) => `${c.id} ${c.round}${c.by ? " " + c.by : ""}${c.now ? ` l.${c.now.line} \u00a7${clipC(c.now.section, 24)} place ${c.now.id}` : c.anchor ? ` (passage ${c.state})` : " (not anchored)"}: "${clipC(c.text, 170)}"${c.quote ? ` on: "${clipC(c.quote, 80)}"` : ""}`)].join("\n");
+    }
+    if (op === "review") return reviewBatch(r, { ...st, section: a.about || a.section, limit: a.limit });
+    if (op === "judge") {
+      const { ok, bad } = parseVerdicts(r, a.text);
+      if (!Object.keys(ok).length) throw new Error(`no verdicts recognised; write one line per id: ID cite|maybe|own (or ok|weak|no|unclear for cited sentences) and a short reason${bad.length ? ` (not understood: ${bad.slice(0, 3).join(" / ")})` : ""}`);
+      this.msSave({ verdicts: { ...st.verdicts, ...ok } });
+      const tally = {}; for (const v of Object.values(ok)) tally[v.need] = (tally[v.need] || 0) + 1;
+      return `Recorded ${Object.keys(ok).length} verdicts (${Object.entries(tally).map(([k, n]) => `${n} ${k}`).join(", ")})${bad.length ? `; ${bad.length} lines not understood` : ""}. They show on the Research Desk.`;
+    }
+    if (op === "show" || op === "gaps") return gapReport(r, { ...st, section: a.about || a.section, limit: a.limit });
+    throw new Error("manuscript op: review (about, limit), support (about, limit), judge (text), markers (text), comments, intake (text | path), resolve (id), gaps, scope (text, note), set (path), clear, dismiss (id), restore (id)");
+  }
+  // Records a round of supervisor comments from pasted text, a Word file or a PDF, and anchors each to its sentence.
+  async intake(a) {
+    const st = this.msState();
+    let list = [], source = "pasted", file = "", note = "";
+    if (a.buffer || a.path) {
+      let name = a.name || "", buf = a.buffer;
+      if (!buf) {
+        const home = oneLine(a.path).replace(/^~(?=\/|$)/, homedir());
+        const abs = resolvePath(isAbsolute(home) ? home : join(this.folder || ".", oneLine(a.path)));
+        if (!/\.(pdf|docx)$/i.test(abs) || !existsSync(abs) || !statSync(abs).isFile()) throw new Error(`${abs} is not a .pdf or .docx file on this Mac`);
+        if (statSync(abs).size > 40e6) throw new Error("that file is larger than 40 MB");
+        buf = readFileSync(abs); name = basename(abs);
+      }
+      file = name;
+      if (/\.docx$/i.test(name)) { source = "Word"; list = docxComments(buf); }
+      else if (/\.pdf$/i.test(name)) { source = "PDF"; const r = await pdfComments(buf); list = r.comments; if (r.bare) note = ` (${r.bare} highlights without a comment were skipped)`; }
+      else throw new Error("comments can be read from a .pdf or .docx file, or pasted");
+    } else list = parsePasted(a.text);
+    if (!list.length) throw new Error("no comments found. Paste them as blocks separated by a blank line (a line starting with > quotes the passage, by: NAME names the author), or give a .docx or .pdf with comments in it");
+    const { r } = this.manuscriptParse();
+    const known = new Set(st.rounds.flatMap((rd) => rd.comments.map((c) => c.hash)));
+    let next = st.nextSC, anchored = 0, dup = 0;
+    const comments = [];
+    for (const c of list.slice(0, 200)) {
+      const h = commentHash(c);
+      if (known.has(h)) { dup++; continue; }
+      known.add(h);
+      const hit = r && c.quote ? anchorTo(c.quote, r.all) : null;
+      if (hit) anchored++;
+      comments.push({ id: `SC${next++}`, hash: h, by: c.by, date: c.date, text: c.text, quote: clipC(c.quote, 300), page: c.page || 0, status: "open", anchor: hit ? { sid: hit.id, text: hit.text, line: hit.line, section: hit.section } : null });
+    }
+    if (!comments.length) return `All ${dup} comments were already recorded.`;
+    const id = `R${st.rounds.length + 1}`;
+    this.msSave({ rounds: [...st.rounds, { id, date: today(), source, file, comments }], nextSC: next });
+    return `Round ${id} (${source}${file ? ", " + file : ""}): ${comments.length} comments recorded, ${anchored} anchored to a sentence, ${comments.length - anchored} not${dup ? `, ${dup} already known` : ""}${note}. They show on the Research Desk.`;
+  }
+  // Everything the Research Desk shows about the draft, with the papers already known to the ledger marked.
+  manuscriptData(t, r, error) {
+    if (!r) return { path: t.path, linked: t.linked, found: t.found || [], error: error || "" };
+    const ap = applyState(r, this.msState());
+    const known = {};
+    for (const [k, b] of Object.entries(r.bib)) {
+      const h = this.ctx.ledger.find({ title: b.title, ids: { doi: b.doi || "", arxiv: b.arxiv || "" } });
+      if (h) { const p = this.ctx.ledger.get(h); known[k] = { h, status: p?.status || "", saved: !!p?.saved }; }
+    }
+    return { path: r.path, linked: t.linked, found: t.found || [], title: r.title, stats: r.stats, sections: ap.sections, notes: r.notes,
+      gaps: ap.gaps, own: ap.own, pending: ap.pending, missing: r.missing, unused: r.unused, scope: this.msState().scope, rounds: this.commentsNow(r), markers: this.msState().markers, detectedMarkers: r.markers || [], pendingSupport: ap.pendingSupport,
+      attach: Object.fromEntries(Object.entries(this.msState().attach).map(([id, hs]) => [id, hs.map((h) => { const p = this.ctx.ledger.get(h); return p ? { h, title: p.title, year: p.year, lasts: p.lasts || [], status: p.status || "", key: this.bibKeyFor(p) } : { h, title: "", year: "", lasts: [], status: "", key: "" }; })])),
+      cites: Object.fromEntries(Object.entries(r.cites).map(([k, c]) => [k, { count: c.count, sections: c.sections }])), bib: r.bib, known, bibFiles: r.bibFiles };
+  }
+
   // A project often has a repository behind it (built before, during or after the writing). The map keeps
   // where it is; Claude asks for a short overview only when a question touches the code. Read only.
   repoOp(a) {
@@ -1145,7 +1352,7 @@ p { margin: 0; }
     for (const d of Object.values(this.m.definitions)) want.add(d.h);
     for (const l of this.m.links) for (const h of [l.from, l.to]) if (/^P\d+/.test(h)) want.add(h.split("#")[0]);
     for (const h of want) { const p = this.ctx.ledger.get(h); if (p) papers[h] = { label: this.paperLabel(h), title: p.title, cards: p.cards || [] }; }
-    return { map: this.m, flags: this.flags(), inUse: this.conceptsInUse(), papers, readOnly: !!this.readOnly, file: this.file };
+    return { map: this.m, flags: this.flags(), inUse: this.conceptsInUse(), papers, readOnly: !!this.readOnly, file: this.file, manuscript: this.manuscriptSummary() };
   }
 }
 

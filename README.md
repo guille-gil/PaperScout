@@ -68,7 +68,7 @@ The definitions themselves are kept verbatim, with their source, year and where 
 
 ### Frameworks 🗺️
 
-Few arguments rest on a single chain of cause and effect, so a project can hold several frameworks side by side: your main account, a rival explanation, the model a key paper proposes. Drag boxes around, pull an arrow from the handle of one to another and say what the link is: influences, moderates, enables, constrains, precedes, part of, a plain association or a verb of your own. Label arrows as hypotheses (H1, H2…). The line style shows how solid each one is: solid when supported, dashed without evidence yet, red when contested. Claude's suggestions arrive dotted, for you to accept or reject.
+Few arguments rest on a single chain of cause and effect, so a project can hold several frameworks side by side: your main account, a rival explanation, the model a key paper proposes. Drag boxes around, pull an arrow from the handle of one to another and say what the link is: influences, moderates, enables, constrains, precedes, part of, a plain association or a verb of your own. Label arrows as hypotheses (H1, H2…). The line style shows how solid each one is: solid when supported, dashed without evidence yet, red when contested.
 
 <p align="center"><img src="docs/images/framework.png" alt="A conceptual framework" width="85%"></p>
 
@@ -105,6 +105,16 @@ Screen papers into keep, maybe or drop, and **save** the ones your argument will
 Saved papers are gathered as PDFs in a **papers** folder inside your project, because Claude writes far better from the papers themselves than from links. They are copied from Zotero when you have them there and downloaded when an open copy exists. Whatever is left becomes a single task, not one per paper; drop the PDFs in the folder under any name and they are matched by title.
 
 <p align="center"><img src="docs/images/shelf.png" alt="The papers folder and its tracker" width="75%"></p>
+
+### The draft you are writing 📝
+
+Link the LaTeX draft you are writing (Paper Scout offers the `.tex` files in your project folder) and the **Manuscript** tab shows its outline, the citations in each section, keys missing from your `.bib`, entries you never cited, and every note a supervisor or you left in it (`\todo`, the `changes` package, `% TODO`). Paper Scout reads the draft on your computer and never changes it.
+
+Whether a sentence needs a source is a judgement about meaning, so it is Claude's, not a rule's. Ask "Review my draft for missing citations" and Claude reads the uncited sentences in batches of up to 30, section by section, and says for each whether it wants a source and why. The reasons appear on the tab, you can dismiss or overrule any of them, and a sentence is judged once: an unchanged one is never read again. A batch costs about 2,000 tokens, and nothing is read unless you ask.
+
+From a flagged sentence, **Find papers** searches for that sentence rather than for a topic: a short query built from it, a pool from Zotero and Semantic Scholar, ranked locally against the sentence, with off-topic results hidden and counted and papers your draft already cites marked. Choose one and Paper Scout shows the citation to copy, or appends the entry to your `.bib` when you say so (it only ever adds to the end of the file). Write what is in and out of scope in your own words and searches and workflows keep to it.
+
+Comments from your supervisors go on the same tab: paste them, or read a Word file (its comments) or a PDF (its annotations) on your Mac. Each comment is anchored to the sentence it is about, kept in a round with its date, and tells you when that sentence has since been edited or removed, so you can see what is probably dealt with. Claude can also check, in small batches, whether the papers you cite support the sentences they are attached to. And when your draft defines its own macros to flag text (`\sv{...}`), they count as notes.
 
 ### One page for supervision
 
@@ -164,6 +174,7 @@ Open `paperscout.plugin` with the Claude desktop app, then type `/paperscout:sta
 | --- | --- |
 | `/paperscout:start` | Turns on research mode for the task, connects your project and gives you the Research Desk link |
 | `/paperscout:desk` | Reopens the Research Desk in the browser pane; `/paperscout:desk browser` opens it in your own browser |
+| `/paperscout:cite <section>` | A citation pass over your linked draft: which sentences need a source, whether cited papers support theirs, papers for the places that do |
 | `/paperscout:ask <question>` | A quick answer from the literature: verdict, positions, debate and a reading list |
 | `/paperscout:lit <topic>` | A full literature review with citations and provenance |
 | `/paperscout:deepresearch <question>` | A thorough, cited research brief |
@@ -173,7 +184,7 @@ Open `paperscout.plugin` with the Claude desktop app, then type `/paperscout:sta
 
 The Desk opens in Claude's browser pane. To keep it open between chats, press **Pop out** on the Desk: it moves to your own browser, where it stays available whenever Claude is running.
 
-The full list appears when you run `/paperscout:start`, and the **Commands** button on the Research Desk keeps it one click away.
+The full list, with what each command does, is under the **Commands** button on the Research Desk.
 
 <p align="center"><img src="docs/images/commands.png" alt="The Commands panel on the Research Desk" width="55%"></p> Outside those commands you can simply talk to Claude: "add this as a concept", "record this as the new version of the idea", "what supports claim K2?".
 
@@ -182,7 +193,7 @@ The full list appears when you run `/paperscout:start`, and the **Commands** but
 Everything about a project lives in its own folder, readable without the tool:
 
 - `papers/`, the PDFs of your saved papers
-- `notes/research-map.json`, the map itself
+- `notes/research-map.json`, the map itself (it also remembers which `.tex` file is your draft; the draft itself is never modified)
 - `notes/research-map.md`, a readable copy regenerated on every change
 - `notes/research-summary.html`, `notes/research-framework.svg` and `notes/research-ontology.ttl` when you export them
 

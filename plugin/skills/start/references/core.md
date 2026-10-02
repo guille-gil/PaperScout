@@ -28,16 +28,18 @@ If the Paper Scout tools are missing, say so once and continue with web search a
 
 ## Research map
 
-The map (`notes/research-map.json` in the project folder, shown on the Research Desk) holds concepts, definitions, claims, questions, the versioned idea, notes, tasks, frameworks and the ontology.
+The map (`notes/research-map.json` in the project folder, shown on the Research Desk) holds concepts, definitions, claims, questions, the versioned idea, notes and tasks. The user also keeps frameworks and an ontology on the Desk; leave those alone.
 
-- **Keep it out of the context.** Never read `research-map.json` or `research-map.md`. Start with `map action=show`, then pull only what the step needs: `map action=focus id=C3` (or K2, RQ1, X1), `idea`, `tasks`, `notes`, `definitions id=C3`, `framework op=show`.
+- **Keep it out of the context.** Never read `research-map.json` or `research-map.md`. Start with `map action=show`, then pull only what the step needs: `map action=focus id=C3` (or K2, RQ1), `idea`, `tasks`, `notes`, `definitions id=C3`.
 - **Claude proposes, the user decides.** Apart from seeding a new, empty project at start (see the start skill), never adopt or drop a concept, write an idea version, accept a relationship, restore or delete without the user's yes in this conversation. The user edits on the Desk too (trigger `edit`); build on their wording rather than rewriting it.
+- **The manuscript.** When `map action=show` lists a manuscript (the user's .tex), read `manuscript.md` in this folder once before using it. The .tex and .bib are read-only: never edit them unless asked.
 - **Code.** When `map action=show` lists linked code and a question touches the method, implementation or results, run `map action=repo op=brief` once, then read only the files needed (the folder must be connected in Cowork; if it is not, ask the user to connect it). Never change the repository unless asked. When the user mentions a repository for this project, offer to link it with `op=add path=...`.
 - **The Desk stays available.** Never navigate or close the Desk tab in the built-in browser; open other pages in new tabs. When the user mentions the Desk and it is not open (check with `tabs_context`), reopen it with `desk` and `preview_start` without asking. While research mode is on, send files with `display: attach` unless the user asks to see them, so the side panel keeps showing the Desk.
 - **Before the first map write of a task** (anything beyond the reads above), read `map-rules.md` in this folder once.
 
 ## Delegation
 
+- Search directly by default. Subagents each pay for the tool definitions and their own searches again, so use them only when the user asks or the work splits into clearly separate areas, and state the call budget first.
 - Use the plugin subagents `researcher`, `verifier`, `reviewer` and `writer` (subagent types `paperscout:researcher` and so on) when splitting the work reduces context or parallelises evidence gathering; if unavailable, use a general-purpose subagent with the matching file from `agents/` pasted into its prompt.
 - Give each a short brief file, an output path and the Paper Scout session name; ask for a one-line reply, then read the file. At most 4 researchers in parallel; verifier after the draft, reviewer after the verifier.
 - Prefer the smallest investigation that can reduce uncertainty.

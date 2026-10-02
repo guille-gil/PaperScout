@@ -7,6 +7,8 @@ argument-hint: <question>
 
 > Research mode: if `../start/references/core.md` has not been read in this task, read it now (and `../start/references/paper-routing.md` before the first paper search) and treat research mode as on for the rest of the task.
 
+> Manuscript: if `map action=show` lists a manuscript, read `../start/references/manuscript.md` (once per task), run `map action=manuscript op=scope` first and keep every query within it; prefer `search for=<place>` to a topic search.
+
 # Ask: a quick, scoped answer
 
 A light workflow for the exploratory phase. No subagents, no verifier, no files unless the user asks. Target budget: under 25,000 tokens. When the question needs more, say so and offer `/paperscout:deepresearch`.

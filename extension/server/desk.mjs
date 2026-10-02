@@ -30,8 +30,8 @@ export function startDesk({ port, cacheDir, callTool, log }) {
     res.writeHead(code, { "content-type": type, "cache-control": "no-store", "x-content-type-options": "nosniff" });
     res.end(typeof body === "string" ? body : JSON.stringify(body));
   };
-  const readBody = (req) => new Promise((resolve) => {
-    let b = ""; req.on("data", (c) => { b += c; if (b.length > 1e6) req.destroy(); });
+  const readBody = (req, max = 1e6) => new Promise((resolve) => {
+    let b = ""; req.on("data", (c) => { b += c; if (b.length > max) req.destroy(); });
     req.on("end", () => { try { resolve(b ? JSON.parse(b) : {}); } catch { resolve(null); } });
   });
 
@@ -81,11 +81,18 @@ export function startDesk({ port, cacheDir, callTool, log }) {
         catch (e) { dump.map = null; dump.mapError = e.message || String(e); }
         return send(res, 200, dump);
       }
+      if (req.method === "POST" && u.pathname === "/api/manuscript-upload") {
+        // A Word or PDF file with supervisor comments, chosen in the page. Read for its comments only, never stored.
+        const body = await readBody(req, 30e6);
+        if (!body || typeof body.data !== "string" || !/\.(pdf|docx)$/i.test(String(body.name || ""))) return send(res, 400, { error: "send a .pdf or .docx file" });
+        const out = await callTool("map", { action: "manuscript", op: "intake", name: String(body.name), buffer: Buffer.from(body.data, "base64"), project: body.project });
+        return send(res, 200, { text: typeof out === "string" ? out : JSON.stringify(out) });
+      }
       if (req.method === "POST" && u.pathname.startsWith("/api/")) {
         const body = await readBody(req);
         if (!body) return send(res, 400, { error: "bad JSON" });
         const tool = u.pathname.slice(5);
-        const allowed = { session: ["note", "start", "bibtex", "card", "title", "papers", "pulse_papers", "screen_oa"], search: null, code: null, paper: null, map: ["concept", "note", "task", "task_order", "framework", "ontology", "edit", "claim", "undefine", "repo"] };
+        const allowed = { session: ["note", "start", "bibtex", "card", "title", "papers", "pulse_papers", "screen_oa"], search: null, code: null, paper: null, map: ["concept", "note", "task", "task_order", "framework", "ontology", "edit", "claim", "undefine", "repo", "manuscript"] };
         if (!(tool in allowed)) return send(res, 404, { error: "unknown action" });
         if (allowed[tool] && !allowed[tool].includes(body.action)) return send(res, 400, { error: "action not allowed" });
         // From the page, the map only takes concept triage and notes.
@@ -117,6 +124,9 @@ export function startDesk({ port, cacheDir, callTool, log }) {
         } else if (tool === "map" && body.action === "repo") {
           if (!["add", "remove", "edit"].includes(body.op)) return send(res, 400, { error: "action not allowed" });
           input = { action: "repo", op: body.op, id: body.id, path: body.path, label: body.label, role: body.role };
+        } else if (tool === "map" && body.action === "manuscript") {
+          if (!["data", "set", "clear", "dismiss", "restore", "unjudge", "attach", "detach", "scope", "bib_add", "intake", "resolve", "markers"].includes(body.op)) return send(res, 400, { error: "action not allowed" });
+          input = { action: "manuscript", op: body.op, path: body.path, id: body.id, handle: body.handle, text: body.text, note: body.note, status: body.status, project: body.project };
         } else if (tool === "map" && body.action === "undefine") {
           input = { action: "undefine", id: String(body.id || "") };
         } else if (tool === "session" && body.action === "pulse_papers") {
