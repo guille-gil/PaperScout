@@ -1,7 +1,8 @@
-// Manuscript: reads the user's LaTeX draft (and its .bib) on this Mac, entirely locally, and reports where it
-// stands: outline, citations per section, cited keys missing from the .bib, supervisor notes (todonotes, the
-// changes package, TODO comments) and the places that look like they still need a source. Nothing here calls
-// Claude or the network, and nothing here ever writes to the user's files.
+// Manuscript: reads the user's LaTeX draft (and its .bib) on this Mac, entirely locally, and reports its structure:
+// outline, citations per section, cited keys missing from the .bib, notes (todonotes, the changes package, TODO
+// comments) and the sentences that carry no citation. Deciding which of those sentences need a source is an act of
+// interpretation, so it is left to Claude, in small batches, on request; this module only prepares the batches and
+// keeps the verdicts. Nothing here calls the network, and nothing here ever writes to the user's files.
 //
 // Offsets are kept exact: commands that are not prose (\todo, \chcomment, ...) are blanked out with spaces of
 // the same length, so every sentence can be traced to its line.
@@ -14,13 +15,9 @@ const oneLine = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 const clip = (s, n) => { s = oneLine(s); return s.length <= n ? s : s.slice(0, n).replace(/\s+\S*$/, "") + "\u2026"; };
 const sha = (s) => createHash("sha1").update(s).digest("hex");
 
-// Sections whose uncited statements are worth a second look: the ones that present other people's work. Findings,
-// discussion and conclusions are the author's own argument, so their uncited sentences are not reported as gaps.
-export const CHECKED = /^(?:\d+\s+)?(?:introduction|background|related|literature|state of the art|prior|review|theor|conceptual|previous)/i;
 const SKIP_ENV = new Set(["table", "table*", "figure", "figure*", "tabular", "tabular*", "tabularx", "equation", "equation*", "align", "align*", "eqnarray", "comment", "verbatim", "lstlisting", "tikzpicture", "thebibliography", "ack", "keyword", "abstract", "algorithm", "algorithmic", "minipage"]);
 const HEADING = /\\(part|chapter|section|subsection|subsubsection|paragraph)(\*?)(?:\[[^\]]*\])?\{((?:[^{}]|\{[^{}]*\})*)\}/;
 const CITE = /\\(?!nocite)([A-Za-z]*[Cc]ite[A-Za-z]*)\*?\s*(?:\[[^\]]*\]\s*){0,2}\{([^{}]*)\}/g;
-const NEEDS_CITE = /\b(?:cite|citation|sources?|who says|evidence|backing|add (?:a )?ref(?:erence)?|reference (?:needed|missing))\b|\?\?/i;
 const NOTE_COMMENT = /^\s*(?:TODO|FIXME|XXX|CHECK|CONFIRM|REVISE|REVIEW|CITE|NOTE|NB|QUESTION|COMMENT|AUTHOR|SV|SUPERVISOR|Q)\b|^\s*[A-Z]{2,4}\s*:/i;
 
 // ---------- small LaTeX helpers ----------
@@ -73,18 +70,6 @@ export function sentences(text) {
   out.push([start, protectedText.length]);
   return out.filter(([a, b]) => text.slice(a, b).trim()).map(([a, b]) => ({ a, b, text: text.slice(a, b) }));
 }
-
-const hasCite = (s) => { CITE.lastIndex = 0; const r = CITE.test(s); CITE.lastIndex = 0; return r; };
-
-// ---------- claim cues ----------
-const STRONG = [
-  /\b(?:has|have|had)\s+(?:\w+ly\s+|long\s+)?(?:been|sought|shown|used|treated|developed|established|proposed|described|reported|demonstrated|found|focused|emphasi[sz]ed|argued|applied)\b/i,
-  /\b(?:reviews?|studies|research|literature|surveys?|authors|scholars|researchers|practitioners|work)\s+(?:\w+\s+){0,2}?(?:shows?|showed|suggests?|suggested|finds?|found|reports?|reported|indicates?|confirms?|describes?|argues?|demonstrates?|identif(?:y|ies)|highlights?|notes?|agree)\b/i,
-  /\b(?:well[- ]known|well[- ]established|widely\s+(?:used|accepted|recogni[sz]ed|adopted|studied)|commonly\s+(?:used|applied|accepted)|state[- ]of[- ]the[- ]art|it is (?:known|accepted|recogni[sz]ed|argued|believed)|according to)\b/i,
-  /\b\d+(?:\.\d+)?\s?%/, /\b(?:in|since|by)\s+(?:19|20)\d{2}\b/,
-];
-const WEAK = /\b(?:typically|generally|often|commonly|increasingly|recent(?:ly)?|existing|traditionally|most|many|several|numerous)\b/i;
-const OWN = /\b(?:we|our|ours|this (?:paper|study|article|analysis|work|section|case|specification)|the (?:present|current) (?:paper|study|analysis|work|reading)|the paper|the analysis|the contribution|here)\b/i;
 
 // ---------- bibliography ----------
 export function parseBib(src) {
@@ -200,24 +185,22 @@ export function parseManuscript(mainPath) {
   for (const f of bibFiles) { const s = readText(f); if (s) Object.assign(bib, parseBib(s)); }
 
   const sections = [];
-  const gaps = [], notes = [];
+  const gaps = [], notes = [], candidates = [];
   const cites = {};
   let body = false, skip = 0, abstract = false, title = "", top = "";
-  let cur = { id: "S0", level: 0, title: "Front matter", line: 1, file: main, words: 0, cites: 0, keys: new Set(), gaps: 0, notes: 0, checked: false };
+  let cur = { id: "S0", level: 0, title: "Front matter", line: 1, file: main, words: 0, cites: 0, keys: new Set(), gaps: 0, notes: 0 };
   sections.push(cur);
   let par = []; // [{ f, n, t, off }]
   let parText = "";
   const nocite = new Set();
 
   const addGap = (g) => {
-    // One gap per sentence. A note from a supervisor or the author says more than a guess from the wording, so it wins.
     g.id = "G" + sha(oneLine(g.text).toLowerCase()).slice(0, 6);
-    const prev = gaps.find((x) => x.id === g.id);
-    if (prev) { if (g.kind === "marker" && prev.kind !== "marker") Object.assign(prev, { kind: g.kind, strength: g.strength, why: g.why, line: g.line, file: g.file }); return; }
+    if (gaps.some((x) => x.id === g.id)) return;
     g.section = cur.title; g.sectionId = cur.id; g.top = top || cur.title;
     gaps.push(g); cur.gaps++;
   };
-  const addNote = (n) => { n.section = cur.title; n.sectionId = cur.id; n.id = "M" + sha(`${n.kind}|${n.line}|${n.text}`).slice(0, 6); notes.push(n); cur.notes++; if (NEEDS_CITE.test(`${n.text} ${n.comment || ""}`)) addGap({ kind: "marker", strength: "likely", line: n.line, file: n.file, text: n.context || n.text, why: `Note ${n.by ? `from ${n.by} ` : ""}asks for a source: "${clip(n.text || n.comment, 80)}"` }); };
+  const addNote = (n) => { n.section = cur.title; n.sectionId = cur.id; n.id = "M" + sha(`${n.kind}|${n.line}|${n.text}`).slice(0, 6); notes.push(n); cur.notes++; };
 
   const flush = () => {
     if (!par.length) return;
@@ -249,22 +232,22 @@ export function parseManuscript(mainPath) {
       const own = sents.find((s) => mk.pos >= s.a && mk.pos < s.b) || [...sents].reverse().find((s) => s.b <= mk.pos) || sents.find((s) => s.a >= mk.pos);
       if (own) mk.context = cleanTex(own.text);
     }
-    sents.forEach((s, i) => {
-      const raw = s.text;
-      const clean = cleanTex(raw);
-      const words = clean.split(/\s+/).filter(Boolean).length;
-      cur.words += words;
-      const where = lineAt(s.a);
-      const keysIn = [...raw.matchAll(CITE)].flatMap((c) => c[2].split(",").map((k) => k.trim()));
-      const empty = /\\[A-Za-z]*[Cc]ite[A-Za-z]*\*?\s*(?:\[[^\]]*\]\s*)*\{\s*(?:\?+|todo|tbd|xxx)?\s*\}|\[\s*(?:citation needed|cite|ref|\?+)\s*\]|\(\s*citation needed\s*\)|(?<![A-Za-z])\?\?(?![A-Za-z])/i.test(raw);
-      if (empty) { addGap({ kind: "empty-cite", strength: "likely", line: where.n, file: where.f, text: clean, why: "A citation placeholder is still empty." }); return; }
-      if (words < 6 || keysIn.length || !cur.checked || abstract || OWN.test(clean)) return;
-      const strong = STRONG.some((r) => r.test(clean));
-      const weak = WEAK.test(clean);
-      if (!strong && !weak) return;
-      const near = [sents[i - 1], sents[i + 1]].filter(Boolean).some((n) => hasCite(n.text));
-      addGap({ kind: "uncited", strength: strong && !near ? "likely" : "check", line: where.n, file: where.f, text: clean,
-        why: near ? "Reads like a statement about prior work; a neighbouring sentence cites." : strong ? "Reads like a statement about prior work and has no citation." : "A general statement about the field with no citation." });
+    const info = sents.map((x) => {
+      const clean = cleanTex(x.text);
+      return { clean, words: clean.split(/\s+/).filter(Boolean).length, where: lineAt(x.a), keys: [...x.text.matchAll(CITE)].flatMap((c) => c[2].split(",").map((k) => k.trim()).filter(Boolean)),
+        empty: /\\[A-Za-z]*[Cc]ite[A-Za-z]*\*?\s*(?:\[[^\]]*\]\s*)*\{\s*(?:\?+|todo|tbd|xxx)?\s*\}|\[\s*(?:citation needed|cite|ref|\?+)\s*\]|\(\s*citation needed\s*\)|(?<![A-Za-z])\?\?(?![A-Za-z])/i.test(x.text) };
+    });
+    info.forEach((x, i) => {
+      cur.words += x.words;
+      if (x.empty) { addGap({ kind: "empty-cite", strength: "likely", line: x.where.n, file: x.where.f, text: x.clean, why: "A citation placeholder is still empty." }); return; }
+      if (abstract || cur.level === 0 || x.words < 3) return;
+      // Candidates for Claude to judge: sentences with no citation, and any sentence somebody left a note on.
+      const notesHere = markers.filter((mk) => mk.context === x.clean);
+      if (x.keys.length && !notesHere.length) return;
+      const id = "G" + sha(oneLine(x.clean).toLowerCase()).slice(0, 6);
+      if (candidates.some((c) => c.id === id)) return;
+      candidates.push({ id, line: x.where.n, file: x.where.f, section: cur.title, sectionId: cur.id, top: top || cur.title, text: x.clean, cited: x.keys,
+        before: info[i - 1]?.keys || [], after: info[i + 1]?.keys || [], notes: notesHere.map((mk) => ({ by: mk.by, text: clip(mk.text || mk.comment, 100) })) });
     });
     for (const mk of markers) addNote({ kind: mk.kind, op: mk.op, by: mk.by, comment: mk.comment, text: mk.text, line: mk.line, file: mk.file, context: mk.context || "" });
     par = []; parText = "";
@@ -287,7 +270,7 @@ export function parseManuscript(mainPath) {
     if (/\\bibliography\s*\{|\\printbibliography|\\begin\{thebibliography\}/.test(code)) { flush(); break; }
     const begins = [...code.matchAll(/\\begin\{([^}]+)\}/g)].map((m) => m[1]);
     const ends = [...code.matchAll(/\\end\{([^}]+)\}/g)].map((m) => m[1]);
-    if (begins.includes("abstract")) { flush(); abstract = true; cur = { id: `S${sections.length}`, level: 1, title: "Abstract", line: v.n, file: v.f, words: 0, cites: 0, keys: new Set(), gaps: 0, notes: 0, checked: false }; sections.push(cur); }
+    if (begins.includes("abstract")) { flush(); abstract = true; cur = { id: `S${sections.length}`, level: 1, title: "Abstract", line: v.n, file: v.f, words: 0, cites: 0, keys: new Set(), gaps: 0, notes: 0 }; sections.push(cur); }
     for (const b of begins) if (SKIP_ENV.has(b) && b !== "abstract") skip++;
     for (const e of ends) { if (SKIP_ENV.has(e) && e !== "abstract" && skip > 0) skip--; if (e === "abstract") { flush(); abstract = false; } }
     if (skip > 0 || begins.some((b) => SKIP_ENV.has(b) && b !== "abstract") || ends.some((e) => SKIP_ENV.has(e) && e !== "abstract")) { if (!code.trim()) flush(); continue; }
@@ -297,7 +280,7 @@ export function parseManuscript(mainPath) {
       const level = { part: 0, chapter: 0, section: 1, subsection: 2, subsubsection: 3, paragraph: 4 }[h[1]];
       const ttl = cleanTex(h[3]);
       if (level <= 1) top = ttl;
-      cur = { id: `S${sections.length}`, level, title: ttl, line: v.n, file: v.f, words: 0, cites: 0, keys: new Set(), gaps: 0, notes: 0, checked: CHECKED.test(top || ttl) };
+      cur = { id: `S${sections.length}`, level, title: ttl, line: v.n, file: v.f, words: 0, cites: 0, keys: new Set(), gaps: 0, notes: 0 };
       sections.push(cur);
       const rest = code.slice(code.indexOf(h[0]) + h[0].length);
       if (rest.trim()) { par.push({ f: v.f, n: v.n, off: parText.length }); parText += rest + "\n"; }
@@ -316,7 +299,7 @@ export function parseManuscript(mainPath) {
   const result = {
     path: main, files: texFiles, bibFiles, title,
     sections: sections.filter((s) => s.id !== "S0" || s.notes).map((s) => ({ ...s, keys: [...s.keys] })),
-    cites, bib: Object.fromEntries(Object.entries(bib).map(([k, e]) => [k, bibSummary(e)])),
+    candidates, cites, bib: Object.fromEntries(Object.entries(bib).map(([k, e]) => [k, bibSummary(e)])),
     missing, unused, gaps, notes,
     stats: { words: sections.reduce((n, s) => n + s.words, 0), cites: cited.reduce((n, k) => n + cites[k].count, 0), keys: cited.length, sections: sections.filter((s) => s.level === 1).length },
   };
@@ -324,22 +307,74 @@ export function parseManuscript(mainPath) {
   return result;
 }
 
-// ---------- what Claude is shown (capped) ----------
-export function summaryLine(r, dismissed = []) {
-  const open = r.gaps.filter((g) => !dismissed.includes(g.id));
-  return `${basename(r.path)}: ${r.stats.sections} sections, ${r.stats.keys} sources cited, ${open.length} possible citation gaps, ${r.notes.length} notes${r.missing.length ? `, ${r.missing.length} cited keys missing from the .bib` : ""}`;
+// ---------- judging: what Claude is shown, and what comes back ----------
+// Verdicts are kept per sentence (by a hash of its text), so an unchanged sentence is never judged twice and an
+// edited one comes back for review by itself. need: cite (a source is wanted), maybe, own (no source needed).
+export const NEEDS = ["cite", "maybe", "own"];
+
+// The merged picture: explicit gaps (empty citations) plus sentences Claude judged to want a source.
+export function applyState(r, { verdicts = {}, dismissed = [] } = {}) {
+  const gaps = r.gaps.map((g) => ({ ...g, dismissed: dismissed.includes(g.id) }));
+  const own = [];
+  let pending = 0;
+  for (const c of r.candidates) {
+    const v = verdicts[c.id];
+    if (!v) { if (!dismissed.includes(c.id)) pending++; continue; }
+    if (v.need === "own") { own.push({ id: c.id, line: c.line, section: c.section, text: c.text, why: v.why || "" }); continue; }
+    gaps.push({ id: c.id, kind: "reviewed", strength: v.need === "cite" ? "likely" : "check", line: c.line, file: c.file, section: c.section, sectionId: c.sectionId, top: c.top, text: c.text, why: v.why || "Claude: a source is wanted here.", by: "claude", dismissed: dismissed.includes(c.id) });
+  }
+  const sections = r.sections.map((s) => ({ ...s, gaps: gaps.filter((g) => !g.dismissed && g.sectionId === s.id).length }));
+  return { gaps, own, pending, sections, open: gaps.filter((g) => !g.dismissed) };
 }
 
-export function gapReport(r, { dismissed = [], section = "", limit = 10 } = {}) {
-  limit = Math.max(1, Math.min(Number(limit) || 10, 25));
-  const sec = oneLine(section).toLowerCase();
-  let list = r.gaps.filter((g) => !dismissed.includes(g.id) && (!sec || g.section.toLowerCase().includes(sec) || (g.top || "").toLowerCase().includes(sec) || g.sectionId.toLowerCase() === sec));
-  list = [...list].sort((a, b) => (a.strength === b.strength ? a.line - b.line : a.strength === "likely" ? -1 : 1));
+export function summaryLine(r, state) {
+  const a = applyState(r, state);
+  const reviewed = a.gaps.filter((g) => g.by === "claude" && !g.dismissed).length;
+  return `${basename(r.path)}: ${r.stats.sections} sections, ${r.stats.keys} sources cited; ${a.open.length} places flagged${reviewed ? ` (${reviewed} by Claude's review)` : ""}, ${a.pending} uncited sentences not yet reviewed, ${r.notes.length} notes${r.missing.length ? `, ${r.missing.length} cited keys missing from the .bib` : ""}`;
+}
+
+const pick = (list, section) => { const sec = oneLine(section).toLowerCase(); return list.filter((x) => !sec || x.section.toLowerCase().includes(sec) || (x.top || "").toLowerCase().includes(sec) || x.sectionId.toLowerCase() === sec); };
+const names = (k) => k.slice(0, 3).join(", ") + (k.length > 3 ? "..." : "");
+
+// A batch of uncited sentences for Claude to judge. Short on purpose: ids, lines, the sentence, and whether its
+// neighbours cite (a citation next door often covers a sentence).
+export function reviewBatch(r, { verdicts = {}, dismissed = [], section = "", limit = 30 } = {}) {
+  limit = Math.max(1, Math.min(Number(limit) || 30, 50));
+  const list = pick(r.candidates.filter((c) => !verdicts[c.id] && !dismissed.includes(c.id)), section);
   const shown = list.slice(0, limit);
-  const lines = [summaryLine(r, dismissed)];
+  if (!shown.length) return `${summaryLine(r, { verdicts, dismissed })}\nNothing left to review${section ? ` in "${section}"` : ""}.`;
+  const lines = [`${r.path.split("/").pop()}: ${shown.length} of ${list.length} sentences to judge. Read each as the author's reader would. cite = states a fact, number, attribution or claim about the literature or the world that a reader would want sourced. maybe = a general statement that probably wants one. own = the authors' own argument, definition, signpost or method, or already covered by a neighbouring citation. Reply with map action=manuscript op=judge text=<one line per id: ID cite|maybe|own and a reason of at most 10 words>. Do not edit the draft.`];
+  for (const c of shown) {
+    const flags = [c.cited.length ? `cited ${names(c.cited)}` : "", c.before.length ? `before cites ${names(c.before)}` : "", c.after.length ? `after cites ${names(c.after)}` : "", ...c.notes.map((n) => `note${n.by ? " " + n.by : ""}: "${n.text}"`)].filter(Boolean);
+    lines.push(`${c.id} l.${c.line} \u00a7${clip(c.top === c.section ? c.section : `${c.top} > ${c.section}`, 36)} "${clip(c.text, 260)}"${flags.length ? ` | ${flags.join(" | ")}` : ""}`);
+  }
+  if (list.length > shown.length) lines.push(`(${list.length - shown.length} more; judge these, then call op=review again, or narrow with about=)`);
+  return lines.join("\n");
+}
+
+// Verdict lines from Claude: "G1a2b3c cite no source for the 30% figure". Unknown ids and words are reported, not stored.
+export function parseVerdicts(r, text) {
+  const ids = new Set(r.candidates.map((c) => c.id));
+  const ok = {}, bad = [];
+  for (const line of String(text || "").split(/\n/).slice(0, 80)) {
+    if (!line.trim()) continue;
+    const m = line.match(/^\s*[-*\d.)\s]*#?(G[0-9a-f]{6})\s*[:,\-\u2013]?\s*(cite|maybe|own)\b[\s:,\-\u2013]*(.*)$/i);
+    if (!m || !ids.has(m[1])) { bad.push(clip(line, 40)); continue; }
+    ok[m[1]] = { need: m[2].toLowerCase(), why: clip(m[3], 90), date: new Date().toISOString().slice(0, 10) };
+  }
+  return { ok, bad };
+}
+
+// The places currently flagged, capped (explicit gaps first, then Claude's verdicts in document order).
+export function gapReport(r, { verdicts = {}, dismissed = [], section = "", limit = 10 } = {}) {
+  limit = Math.max(1, Math.min(Number(limit) || 10, 25));
+  const a = applyState(r, { verdicts, dismissed });
+  const list = pick(a.open, section).sort((x, y) => (x.strength === y.strength ? x.line - y.line : x.strength === "likely" ? -1 : 1));
+  const shown = list.slice(0, limit);
+  const lines = [summaryLine(r, { verdicts, dismissed })];
   if (r.missing.length) lines.push(`Cited but not in the .bib: ${r.missing.slice(0, 8).join(", ")}${r.missing.length > 8 ? " ..." : ""}`);
-  for (const g of shown) lines.push(`${g.id} l.${g.line} ${clip(g.section, 28)} [${g.strength}] "${clip(g.text, 130)}"`);
-  if (list.length > shown.length) lines.push(`(${list.length - shown.length} more; narrow with section= or raise limit)`);
-  if (!list.length) lines.push("No open gaps" + (sec ? ` in "${section}"` : "") + ".");
+  for (const g of shown) lines.push(`${g.id} l.${g.line} ${clip(g.section, 28)} [${g.strength}] "${clip(g.text, 130)}" ${clip(g.why, 70)}`);
+  if (list.length > shown.length) lines.push(`(${list.length - shown.length} more; narrow with about= or raise limit)`);
+  if (!list.length) lines.push(a.pending ? `No places flagged yet; ${a.pending} uncited sentences have not been reviewed (op=review).` : "No places flagged" + (section ? ` in "${section}"` : "") + ".");
   return lines.join("\n");
 }

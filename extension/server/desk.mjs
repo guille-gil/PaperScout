@@ -118,7 +118,7 @@ export function startDesk({ port, cacheDir, callTool, log }) {
           if (!["add", "remove", "edit"].includes(body.op)) return send(res, 400, { error: "action not allowed" });
           input = { action: "repo", op: body.op, id: body.id, path: body.path, label: body.label, role: body.role };
         } else if (tool === "map" && body.action === "manuscript") {
-          if (!["data", "set", "clear", "dismiss", "restore"].includes(body.op)) return send(res, 400, { error: "action not allowed" });
+          if (!["data", "set", "clear", "dismiss", "restore", "unjudge"].includes(body.op)) return send(res, 400, { error: "action not allowed" });
           input = { action: "manuscript", op: body.op, path: body.path, id: body.id, project: body.project };
         } else if (tool === "map" && body.action === "undefine") {
           input = { action: "undefine", id: String(body.id || "") };

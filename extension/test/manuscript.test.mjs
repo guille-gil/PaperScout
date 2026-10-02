@@ -2,11 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { parseManuscript, gapReport, sentences, cleanTex, parseBib, findManuscripts } from "../server/manuscript.mjs";
+import { parseManuscript, applyState, reviewBatch, parseVerdicts, gapReport, summaryLine, sentences, cleanTex, parseBib, findManuscripts } from "../server/manuscript.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIX = join(HERE, "fixtures", "paper");
 const r = parseManuscript(join(FIX, "main.tex"));
+const cand = (re) => r.candidates.find((c) => re.test(c.text));
 
 test("finds the manuscript and its pieces", () => {
   assert.equal(r.title, "A Fixture for the Manuscript Parser");
@@ -29,77 +30,126 @@ test("citations, missing keys and unused entries", () => {
   assert.equal(r.bib.Smith2020.doi, "10.1000/example.1");
 });
 
-test("an uncited claim about prior work is a likely gap, with its line", () => {
-  const g = r.gaps.find((x) => /Prior studies have shown/.test(x.text));
-  assert.ok(g, "found");
-  assert.equal(g.line, 11);
-  assert.equal(g.strength, "likely");
-  assert.equal(g.section, "Introduction");
+test("the parser does not decide what needs a source: every uncited sentence is a candidate for Claude", () => {
+  assert.ok(cand(/Prior studies have shown/));
+  assert.ok(cand(/We argue/), "even the authors' own argument is left for Claude to judge");
+  assert.ok(cand(/Participants were recruited/));
+  assert.ok(cand(/Another claim about the literature/), "from the \\input file");
 });
 
-test("sentences that cite, or talk about the paper itself, are not gaps", () => {
-  assert.ok(!r.gaps.some((x) => /Smith et al/.test(x.text)), "et al. does not split and the sentence cites");
-  assert.ok(!r.gaps.some((x) => /We argue/.test(x.text)));
-  assert.ok(!r.gaps.some((x) => /own design/.test(x.text)));
+test("cited sentences are not candidates, and et al. does not split a sentence", () => {
+  assert.ok(!cand(/Smith et al\. report a smaller effect/) || cand(/Smith et al\. report a smaller effect/).notes.length > 0);
+  assert.ok(!cand(/Recent reviews confirm that dashboards help/));
 });
 
-test("claims are only checked in the sections that present prior work", () => {
-  assert.ok(!r.gaps.some((x) => /Participants were recruited in 2021/.test(x.text)), "Method is the author's own account");
+test("a cited sentence somebody left a note on is still a candidate, with the note", () => {
+  const c = cand(/Smith et al\. report/);
+  assert.ok(c, "kept because of the note");
+  assert.deepEqual(c.cited, ["Smith2020"]);
+  assert.match(c.notes[0].text, /right paper/);
 });
 
-test("a supervisor comment asking for a source becomes a gap tied to its sentence", () => {
+test("candidates know whether their neighbours cite", () => {
+  assert.deepEqual(cand(/We argue/).after, ["Smith2020"]);
+  assert.deepEqual(cand(/Prior studies/).before, []);
+});
+
+test("front matter, abstract and float contents are left out", () => {
+  assert.ok(!r.candidates.some((c) => /Reviews have shown many things/.test(c.text)), "table caption");
+  assert.ok(!r.candidates.some((c) => c.section === "Front matter"));
+});
+
+test("a supervisor comment is attached to its sentence, also when it follows the full stop", () => {
+  const c = cand(/long treated triage/);
+  assert.ok(c.notes.some((n) => n.by === "SV" && /Who says this/.test(n.text)));
   const n = r.notes.find((x) => x.op === "comment");
   assert.equal(n.by, "SV");
   assert.equal(n.line, 13);
-  const g = r.gaps.find((x) => x.kind === "marker" && x.line === 13);
-  assert.ok(g && /long treated triage/.test(g.text));
 });
 
-test("todonotes and empty citations are gaps", () => {
-  assert.ok(r.gaps.some((x) => x.kind === "marker" && /dashboards/.test(x.text)), "\\todo{cite}");
-  assert.ok(r.gaps.some((x) => x.kind === "empty-cite" && /Many practitioners/.test(x.text)), "\\cite{}");
-});
-
-test("tracked changes keep added text and drop deleted text from the prose", () => {
-  const ops = r.notes.filter((x) => x.kind === "change").map((x) => x.op).sort();
-  assert.deepEqual(ops, ["added", "comment", "deleted", "replaced"]);
-  assert.ok(!r.gaps.some((x) => /deleted words/.test(x.text)));
-});
-
-test("a TODO comment is a note", () => {
+test("todonotes, tracked changes and TODO comments are notes", () => {
+  assert.ok(cand(/Hospitals increasingly rely on dashboards\./).notes.some((x) => x.text === "cite"));
+  assert.deepEqual(r.notes.filter((x) => x.kind === "change").map((x) => x.op).sort(), ["added", "comment", "deleted", "replaced"]);
   assert.ok(r.notes.some((x) => x.kind === "comment" && /sampling claim/.test(x.text)));
+  assert.ok(!r.candidates.some((c) => /deleted words/.test(c.text)), "deleted text leaves the prose");
 });
 
-test("table captions are left alone", () => {
-  assert.ok(!r.gaps.some((x) => /Reviews have shown many things/.test(x.text)));
+test("an empty citation is a gap by itself, not a judgement call", () => {
+  const g = r.gaps.find((x) => x.kind === "empty-cite");
+  assert.ok(g && /Many practitioners/.test(g.text));
+  assert.ok(!r.candidates.some((c) => c.id === g.id), "and not also a candidate");
 });
 
-test("one gap per sentence, and a note from a supervisor wins over a guess", () => {
-  const texts = r.gaps.map((g) => g.text);
-  assert.equal(new Set(texts).size, texts.length);
-  const g = r.gaps.find((x) => /long treated triage/.test(x.text));
-  assert.equal(g.kind, "marker");
-  assert.ok(r.gaps.some((x) => x.text === "Hospitals increasingly rely on dashboards."), "no stray space before the full stop");
-});
-
-test("gap ids are stable and dismissed ones are hidden", () => {
+test("ids are stable across parses", () => {
   const again = parseManuscript(join(FIX, "main.tex"));
-  assert.deepEqual(again.gaps.map((g) => g.id), r.gaps.map((g) => g.id));
-  const dismissed = [r.gaps[0].id];
-  assert.ok(!gapReport(r, { dismissed }).includes(r.gaps[0].id));
+  assert.deepEqual(again.candidates.map((c) => c.id), r.candidates.map((c) => c.id));
+  assert.equal(new Set(r.candidates.map((c) => c.id)).size, r.candidates.length);
 });
 
-test("what Claude sees is capped and short", () => {
-  const out = gapReport(r, { limit: 2 });
-  assert.ok(out.split("\n").length <= 5);
-  assert.match(out, /more; narrow with section= or raise limit/);
+test("a review batch is capped, filterable by section and carries the instructions", () => {
+  const all = reviewBatch(r, {});
+  assert.match(all, /cite\|maybe\|own/);
+  assert.match(all, /Do not edit the draft/);
+  const two = reviewBatch(r, { limit: 2 });
+  assert.match(two, /2 of \d+ sentences to judge/);
+  assert.match(two, /more; judge these/);
+  const rel = reviewBatch(r, { section: "related" });
+  assert.match(rel, /Another claim about the literature/);
+  assert.doesNotMatch(rel, /Prior studies/);
+  assert.match(reviewBatch(r, { limit: 99 }), /sentences to judge/, "the cap is enforced rather than trusted");
+});
+
+test("the batch is short: neighbours are flagged, not quoted", () => {
+  const line = reviewBatch(r, { section: "introduction" }).split("\n").find((l) => /We argue/.test(l));
+  assert.match(line, /after cites Smith2020/);
+  assert.ok(line.length < 260);
+});
+
+test("verdicts are parsed from plain lines and unknown ids are refused", () => {
+  const a = cand(/Prior studies/), b = cand(/We argue/);
+  const { ok, bad } = parseVerdicts(r, `${a.id} cite no source for the 30% figure\n- ${b.id}: own the authors' argument\nGffffff cite made up id\nnonsense`);
+  assert.equal(ok[a.id].need, "cite");
+  assert.match(ok[a.id].why, /30%/);
+  assert.equal(ok[b.id].need, "own");
+  assert.equal(bad.length, 2);
+});
+
+test("judged sentences leave the next batch, and an edited sentence comes back by itself", () => {
+  const a = cand(/Prior studies/);
+  const verdicts = { [a.id]: { need: "cite", why: "x", date: "2026-10-02" } };
+  assert.doesNotMatch(reviewBatch(r, { verdicts }), new RegExp(a.id));
+  const edited = "G000000";
+  assert.notEqual(edited, a.id);
+  assert.ok(r.candidates.every((c) => c.id !== edited), "a new sentence has a new id, so it carries no verdict");
+});
+
+test("Claude's verdicts become the flagged places; own verdicts stay out of the list", () => {
+  const a = cand(/Prior studies/), b = cand(/We argue/);
+  const verdicts = { [a.id]: { need: "cite", why: "no source for the figure" }, [b.id]: { need: "own", why: "argument" } };
+  const st = applyState(r, { verdicts, dismissed: [] });
+  assert.ok(st.open.some((g) => g.id === a.id && g.kind === "reviewed" && g.by === "claude" && g.strength === "likely"));
+  assert.ok(!st.open.some((g) => g.id === b.id));
+  assert.deepEqual(st.own.map((o) => o.id), [b.id]);
+  assert.ok(st.open.some((g) => g.kind === "empty-cite"), "explicit gaps are always there");
+  assert.equal(st.pending, r.candidates.length - 2);
+  assert.equal(st.sections.find((s) => s.title === "Introduction").gaps, 1);
+});
+
+test("dismissing hides a flag and takes it out of the pending count", () => {
+  const a = cand(/Prior studies/);
+  const verdicts = { [a.id]: { need: "maybe", why: "" } };
+  const st = applyState(r, { verdicts, dismissed: [a.id] });
+  assert.ok(!st.open.some((g) => g.id === a.id));
+  assert.ok(st.gaps.some((g) => g.id === a.id && g.dismissed));
+});
+
+test("what Claude sees about the flagged places is capped and short", () => {
+  const verdicts = Object.fromEntries(r.candidates.map((c) => [c.id, { need: "cite", why: "w" }]));
+  const out = gapReport(r, { verdicts, limit: 2 });
+  assert.ok(out.split("\n").length <= 6);
+  assert.match(out, /more; narrow with about= or raise limit/);
   assert.match(out, /cited keys missing from the \.bib/);
-});
-
-test("a section filter matches the parent section as well as the subsection", () => {
-  assert.match(gapReport(r, { section: "related" }), /Another claim about the literature/);
-  assert.match(gapReport(r, { section: "introduction" }), /Prior studies/);
-  assert.doesNotMatch(gapReport(r, { section: "introduction" }), /Another claim/);
+  assert.match(summaryLine(r, {}), /uncited sentences not yet reviewed/);
 });
 
 test("sentence splitting keeps abbreviations and initials together", () => {

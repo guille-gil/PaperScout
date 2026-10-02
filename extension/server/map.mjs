@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdir
 import { join, dirname, basename, isAbsolute, relative, resolve as resolvePath } from "node:path";
 import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
-import { parseManuscript, findManuscripts, gapReport, summaryLine } from "./manuscript.mjs";
+import { parseManuscript, findManuscripts, gapReport, summaryLine, applyState, reviewBatch, parseVerdicts } from "./manuscript.mjs";
 
 const oneLine = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 const clip = (s, n) => { s = oneLine(s); return s.length <= n ? s : s.slice(0, n).replace(/\s+\S*$/, "") + "…"; };
@@ -606,7 +606,9 @@ export class ResearchMap {
   }
   // ---------- code linked to the project ----------
   // The user's LaTeX draft. It is linked once (the Desk offers the .tex files it finds in the project folder), then
-  // read locally on demand. Claude is shown a capped list of citation gaps, never the draft; nothing here writes to it.
+  // read locally on demand. Which uncited sentences want a source is for Claude to judge, in small batches and only
+  // on request (op=review, then op=judge); the verdicts are kept here by sentence, so nothing is judged twice.
+  // Claude is never shown the whole draft, and nothing here writes to it.
   manuscriptTarget() {
     const m = this.m, folder = this.folder || "";
     const set = m.manuscript?.path;
@@ -619,52 +621,67 @@ export class ResearchMap {
     if (!t.path) return { t, r: null };
     try { return { t, r: parseManuscript(t.path) }; } catch (e) { return { t, r: null, error: e.message }; }
   }
+  msState() { const x = this.m.manuscript || {}; return { verdicts: x.verdicts || {}, dismissed: x.dismissed || [] }; }
+  msSave(patch) {
+    const keep = (o, n) => Object.fromEntries(Object.entries(o).slice(-n));
+    const x = { path: "", dismissed: [], verdicts: {}, ...(this.m.manuscript || {}), ...patch };
+    x.dismissed = [...new Set(x.dismissed)].slice(-500); x.verdicts = keep(x.verdicts, 2000);
+    if (!x.path && !x.dismissed.length && !Object.keys(x.verdicts).length) delete this.m.manuscript; else this.m.manuscript = x;
+    this.save();
+  }
   manuscriptLine() {
     const { r } = this.manuscriptParse();
-    return r ? `Manuscript ${summaryLine(r, this.m.manuscript?.dismissed || [])} (map action=manuscript op=gaps)` : "";
+    return r ? `Manuscript ${summaryLine(r, this.msState())} (map action=manuscript op=review|gaps)` : "";
   }
   manuscriptSummary() {
     const { t, r, error } = this.manuscriptParse();
-    const dismissed = this.m.manuscript?.dismissed || [];
-    return { path: t.path, linked: t.linked, found: t.found || [], error: error || "", gaps: r ? r.gaps.filter((g) => !dismissed.includes(g.id)).length : 0, notes: r ? r.notes.length : 0 };
+    const a = r ? applyState(r, this.msState()) : null;
+    return { path: t.path, linked: t.linked, found: t.found || [], error: error || "", gaps: a ? a.open.length : 0, pending: a ? a.pending : 0, notes: r ? r.notes.length : 0 };
   }
   manuscriptOp(a) {
-    const m = this.m, op = a.op || "show", dismissed = m.manuscript?.dismissed || [];
+    const m = this.m, op = a.op || "show", st = this.msState();
     if (op === "set") {
       const raw = oneLine(a.path); if (!raw) throw new Error("manuscript set needs path (the main .tex file)");
-      const abs = resolvePath(isAbsolute(raw.replace(/^~(?=\/|$)/, homedir())) ? raw.replace(/^~(?=\/|$)/, homedir()) : join(this.folder || ".", raw));
+      const home = raw.replace(/^~(?=\/|$)/, homedir());
+      const abs = resolvePath(isAbsolute(home) ? home : join(this.folder || ".", raw));
       if (!/\.tex$/i.test(abs) || !existsSync(abs) || !statSync(abs).isFile()) throw new Error(`${abs} is not a .tex file on this Mac`);
-      parseManuscript(abs);
+      const r = parseManuscript(abs);
       const rel = this.folder ? relative(this.folder, abs) : "";
-      m.manuscript = { path: rel && !rel.startsWith("..") && !isAbsolute(rel) ? rel : abs, dismissed: dismissed.slice() };
-      this.save();
-      return `Linked ${basename(abs)}. ${summaryLine(parseManuscript(abs), dismissed)}`;
+      this.msSave({ path: rel && !rel.startsWith("..") && !isAbsolute(rel) ? rel : abs });
+      return `Linked ${basename(abs)}. ${summaryLine(r, this.msState())}`;
     }
-    if (op === "clear") { delete m.manuscript; this.save(); return "Manuscript unlinked; the file itself was not touched."; }
+    if (op === "clear") { this.msSave({ path: "" }); return "Manuscript unlinked; the file itself was not touched."; }
     if (op === "dismiss" || op === "restore") {
       const id = oneLine(a.id).replace(/^#/, ""); if (!/^G[0-9a-f]{6}$/.test(id)) throw new Error("dismiss and restore need a gap id such as G1a2b3c");
-      const set = new Set(dismissed); if (op === "dismiss") set.add(id); else set.delete(id);
-      m.manuscript = { ...(m.manuscript || { path: "" }), dismissed: [...set].slice(-500) };
-      if (!m.manuscript.path && !this.manuscriptTarget().path) delete m.manuscript;
-      this.save(); return op === "dismiss" ? `Dismissed ${id}.` : `Restored ${id}.`;
+      const set = new Set(st.dismissed); if (op === "dismiss") set.add(id); else set.delete(id);
+      this.msSave({ dismissed: [...set] }); return op === "dismiss" ? `Dismissed ${id}.` : `Restored ${id}.`;
     }
+    if (op === "unjudge") { const id = oneLine(a.id).replace(/^#/, ""); const v = { ...st.verdicts }; delete v[id]; this.msSave({ verdicts: v }); return `${id} will be reviewed again.`; }
     const { t, r, error } = this.manuscriptParse();
     if (op === "data") return JSON.stringify(this.manuscriptData(t, r, error));
     if (!r) return error ? `The manuscript could not be read: ${error}` : t.found?.length ? `No manuscript linked. Found: ${t.found.map((f) => basename(f)).join(", ")}. Link one with map action=manuscript op=set path=...` : "No manuscript linked (a .tex draft in the project folder, or op=set path=...).";
-    if (op === "show" || op === "gaps") return gapReport(r, { dismissed, section: a.section || a.about, limit: a.limit });
-    throw new Error("manuscript op: show, gaps (section, limit), set (path), clear, dismiss (id), restore (id)");
+    if (op === "review") return reviewBatch(r, { ...st, section: a.about || a.section, limit: a.limit });
+    if (op === "judge") {
+      const { ok, bad } = parseVerdicts(r, a.text);
+      if (!Object.keys(ok).length) throw new Error(`no verdicts recognised; write one line per id: ID cite|maybe|own and a short reason${bad.length ? ` (not understood: ${bad.slice(0, 3).join(" / ")})` : ""}`);
+      this.msSave({ verdicts: { ...st.verdicts, ...ok } });
+      const n = (w) => Object.values(ok).filter((v) => v.need === w).length;
+      return `Recorded ${Object.keys(ok).length} verdicts (${n("cite")} cite, ${n("maybe")} maybe, ${n("own")} own)${bad.length ? `; ${bad.length} lines not understood` : ""}. They show on the Research Desk.`;
+    }
+    if (op === "show" || op === "gaps") return gapReport(r, { ...st, section: a.about || a.section, limit: a.limit });
+    throw new Error("manuscript op: review (about, limit), judge (text), gaps, set (path), clear, dismiss (id), restore (id)");
   }
   // Everything the Research Desk shows about the draft, with the papers already known to the ledger marked.
   manuscriptData(t, r, error) {
-    const dismissed = this.m.manuscript?.dismissed || [];
     if (!r) return { path: t.path, linked: t.linked, found: t.found || [], error: error || "" };
+    const ap = applyState(r, this.msState());
     const known = {};
     for (const [k, b] of Object.entries(r.bib)) {
       const h = this.ctx.ledger.find({ title: b.title, ids: { doi: b.doi || "", arxiv: b.arxiv || "" } });
       if (h) { const p = this.ctx.ledger.get(h); known[k] = { h, status: p?.status || "", saved: !!p?.saved }; }
     }
-    return { path: r.path, linked: t.linked, found: t.found || [], title: r.title, stats: r.stats, sections: r.sections, notes: r.notes,
-      gaps: r.gaps.map((g) => ({ ...g, dismissed: dismissed.includes(g.id) })), missing: r.missing, unused: r.unused,
+    return { path: r.path, linked: t.linked, found: t.found || [], title: r.title, stats: r.stats, sections: ap.sections, notes: r.notes,
+      gaps: ap.gaps, own: ap.own, pending: ap.pending, missing: r.missing, unused: r.unused,
       cites: Object.fromEntries(Object.entries(r.cites).map(([k, c]) => [k, { count: c.count, sections: c.sections }])), bib: r.bib, known, bibFiles: r.bibFiles };
   }
 

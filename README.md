@@ -108,7 +108,9 @@ Saved papers are gathered as PDFs in a **papers** folder inside your project, be
 
 ### The draft you are writing 📝
 
-Link the LaTeX draft you are writing (Paper Scout offers the `.tex` files in your project folder) and the **Manuscript** tab shows where it still needs sources: sentences that read like a statement about prior work and carry no citation, empty `\cite{}` placeholders and notes asking for a source (`\todo`, the `changes` package, `% TODO`), with the outline, the citations per section, keys missing from your `.bib` and entries you never cited. Paper Scout reads the draft on your computer and never changes it, and the tab costs Claude no tokens. The gaps are guesses from the wording, so dismiss the ones that are your own argument.
+Link the LaTeX draft you are writing (Paper Scout offers the `.tex` files in your project folder) and the **Manuscript** tab shows its outline, the citations in each section, keys missing from your `.bib`, entries you never cited, and every note a supervisor or you left in it (`\todo`, the `changes` package, `% TODO`). Paper Scout reads the draft on your computer and never changes it.
+
+Whether a sentence needs a source is a judgement about meaning, so it is Claude's, not a rule's. Ask "Review my draft for missing citations" and Claude reads the uncited sentences in batches of up to 30, section by section, and says for each whether it wants a source and why. The reasons appear on the tab, you can dismiss or overrule any of them, and a sentence is judged once: an unchanged one is never read again. A batch costs about 2,000 tokens, and nothing is read unless you ask.
 
 ### One page for supervision
 

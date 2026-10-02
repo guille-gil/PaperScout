@@ -2,6 +2,17 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.22.0 (2026-10-02)
+
+### Paper Scout
+- **Claude decides which sentences need a source, not a rule list.** The wording rules of 0.21.0 are gone. Paper Scout still does the structural work locally (sections, which sentences already cite, notes, empty `\cite{}`, the `.bib`), and hands Claude the uncited sentences in small batches when you ask: `map action=manuscript op=review` returns at most 30 sentences (`about=` narrows to a section), with the neighbours' citations flagged, and `op=judge` records a verdict per sentence (`cite`, `maybe` or `own`) with a short reason.
+- Verdicts are remembered by sentence, so nothing is judged twice and a sentence you edit comes back for review by itself. A batch costs about 2,000 tokens; a whole short paper, a few thousand. Nothing is judged unless you ask.
+- The Manuscript tab shows Claude's reasons next to each flag, how many uncited sentences are still unreviewed (with the sentence to say to Claude), and a collapsed list of the sentences Claude judged to need no source, each with "Ask again". You can still dismiss any flag. Notes asking for a source are no longer guessed from their wording: they appear with the sentence they sit on, and Claude reads them with it.
+- Tool definitions: about 70 tokens more than 0.20.0 for the whole manuscript feature (2,396 in all, against 2,634 before the 0.20.0 diet).
+
+### Paper Scout for Cowork (0.15.0)
+- The manuscript rule now describes the review and judge cycle and its token cost.
+
 ## 0.21.0 (2026-10-02)
 
 Keeping the literature close to the writing: Paper Scout now reads the draft you are working on.
