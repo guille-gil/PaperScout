@@ -16,7 +16,7 @@ import { startDesk } from "./desk.mjs";
 import { ResearchMap, definitionHits } from "./map.mjs";
 import { splitList } from "./manuscript.mjs";
 
-const VERSION = "0.23.0";
+const VERSION = "0.24.0";
 const PARSER_VERSION = "3";
 const S2 = "https://api.semanticscholar.org/graph/v1";
 const S2_REC = "https://api.semanticscholar.org/recommendations/v1";
@@ -475,8 +475,8 @@ function fitScores(queryTerms, docs) {
 async function toolFindFor(a) {
   await refreshSurnames();
   const ref = oneLine(a.for);
-  const ctx = /^G[0-9a-f]{6}$/.test(ref) ? MAP.manuscriptFor(ref) : { hit: null, scope: MAP.manuscriptFor("").scope, title: MAP.manuscriptFor("").title };
-  if (/^G[0-9a-f]{6}$/.test(ref) && !ctx.hit) throw new Error(`${ref} is not a place in the linked draft (map action=manuscript op=gaps lists them)`);
+  const ctx = /^[GS][0-9a-f]{6}$/.test(ref) ? MAP.manuscriptFor(ref) : { hit: null, scope: MAP.manuscriptFor("").scope, title: MAP.manuscriptFor("").title };
+  if (/^[GS][0-9a-f]{6}$/.test(ref) && !ctx.hit) throw new Error(`${ref} is not a place in the linked draft (map action=manuscript op=gaps lists them)`);
   const sentence = ctx.hit ? ctx.hit.text : ref;
   if (!sentence) throw new Error("for needs a flagged place (G1a2b3c) or a sentence");
   const heading = ctx.hit ? `${ctx.hit.top || ""} ${ctx.hit.section || ""} ${ctx.title || ""}` : ctx.title || "";
@@ -519,8 +519,9 @@ async function toolFindFor(a) {
   const hidden = ranked.length - shown.length, hiddenOut = ranked.filter((x) => x.outHit).length;
   const id = LEDGER.recordQuery({ ...args, for: ref.slice(0, 40) }, shown.map((x) => x.h), `for ${ctx.hit ? ref : "a sentence"}: ${query}`);
   const items = shown.map((x) => { const p = LEDGER.get(x.h); return { h: x.h, title: p.title, lasts: p.lasts || [], year: p.year, venue: p.venue || "", cites: p.cites ?? null, score: Math.round(x.score * 100) / 100, why: x.why, inBib: x.inBib, status: p.status || "", oa: !!p.oa, ids: p.ids }; });
-  const head = `${id} for ${ctx.hit ? ref : "your sentence"}: query "${query}" (${heads.join("; ")}); ${ranked.length} found, ${hidden} hidden as off topic${hiddenOut ? ` (${hiddenOut} on your out-of-scope list)` : ""}`;
-  if (a.json) return JSON.stringify({ head, query, found: ranked.length, hidden, hiddenOut, items, sentence });
+  const chosen = ctx.hit ? (MAP.msState().attach[ref] || []).length : 0;
+  const head = `${chosen >= 3 ? `${chosen} papers are already chosen for this place, probably enough. ` : ""}${id} for ${ctx.hit ? ref : "your sentence"}: query "${query}" (${heads.join("; ")}); ${ranked.length} found, ${hidden} hidden as off topic${hiddenOut ? ` (${hiddenOut} on your out-of-scope list)` : ""}`;
+  if (a.json) return JSON.stringify({ head, chosen, query, found: ranked.length, hidden, hiddenOut, items, sentence });
   return [head, ...shown.map((x) => `${LEDGER.line(x.h, {})} | fit ${x.score.toFixed(2)}${x.why.length ? ` (${x.why.join(", ")})` : ""}${x.inBib ? ` | already in your .bib as ${x.inBib}` : ""}`),
     shown.length ? "Shortlist only. Choose with map action=manuscript op=attach id=<place> handle=<P>; read more with paper or read." : "Nothing fit well; reword with query=."].join("\n");
 }
@@ -1265,9 +1266,9 @@ async function toolReadAll(a) {
   if (a.sections?.length) return toolRead(a);
   return toolOutline(a);
 }
-TOOLS.push({ name: "map", description: "The project's research map (notes/research-map.json in the project folder; never read the file). Read: show (overview, warnings), focus id=C3|K2|RQ1 (one item, its neighbours, nearby evidence), idea, concepts, definitions, questions, notes, tasks. Write: concept (id|label; status, role, use, scope, alt), define (handle, quote, loc) / undefine, tag + compare (definition attributes), scan, pulse, claim (text|id; uses, answers, status), question (verdict, coverage), link|unlink (from, rel, to), revise (statement, background, positioning, thesis, novelty, method, claims, concepts, trigger, change), version, note, task, summary, repo (code linked to the project: op list|add path,label,role|remove|brief = short overview on demand), manuscript (the user's .tex: op review = a batch of uncited sentences for you to judge, about=section, limit; judge text=one line per id \"ID cite|maybe|own reason\"; gaps = flagged places; set path|clear|dismiss id). Frameworks and the ontology are edited by the user on the Research Desk. Adopting concepts and revising the idea only after the user agrees",
+TOOLS.push({ name: "map", description: "The project's research map (notes/research-map.json in the project folder; never read the file). Read: show (overview, warnings), focus id=C3|K2|RQ1 (one item, its neighbours, nearby evidence), idea, concepts, definitions, questions, notes, tasks. Write: concept (id|label; status, role, use, scope, alt), define (handle, quote, loc) / undefine, tag + compare (definition attributes), scan, pulse, claim (text|id; uses, answers, status), question (verdict, coverage), link|unlink (from, rel, to), revise (statement, background, positioning, thesis, novelty, method, claims, concepts, trigger, change), version, note, task, summary, repo (code linked to the project: op list|add path,label,role|remove|brief = short overview on demand), manuscript (the user's .tex: op review = a batch of uncited sentences for you to judge, about=section, limit; support = a batch of cited sentences to check against their sources; judge text=one line per id \"ID cite|maybe|own|ok|weak|no|unclear reason\"; gaps = flagged places; comments = open supervisor comments with their place; intake text|path = record pasted comments (blocks, \"> quoted passage\") or a .docx/.pdf; resolve id; scope; set path|clear|dismiss id). Frameworks and the ontology are edited by the user on the Research Desk. Adopting concepts and revising the idea only after the user agrees",
   inputSchema: S({ action: { type: "string", enum: ["show", "concepts", "concept", "define", "definitions", "tag", "compare", "scan", "pulse", "claim", "question", "questions", "link", "unlink", "revise", "version", "idea", "note", "notes", "summary", "task", "tasks", "focus", "undefine", "repo", "manuscript"] },
-    op: { type: "string", description: "repo: list|add|remove|brief; manuscript: review|judge|gaps|set|clear|dismiss" },
+    op: { type: "string", description: "repo: list|add|remove|brief; manuscript: review|support|judge|gaps|comments|intake|resolve|scope|set|clear|dismiss" },
     source: { type: "string", enum: ["you", "supervisor", "workflow", "claude"] }, due: { type: "string" },
     id: { type: "string" }, label: { type: "string" }, text: { type: "string" }, alt: IDS, attributes: { type: "array", items: { type: "string" } },
     status: { type: "string" }, role: { type: "string" }, use: { type: "string" }, scope: { type: "string" }, note: { type: "string" },

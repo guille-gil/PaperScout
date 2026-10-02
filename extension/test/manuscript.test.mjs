@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { parseManuscript, applyState, reviewBatch, parseVerdicts, gapReport, summaryLine, sentences, cleanTex, parseBib, findManuscripts } from "../server/manuscript.mjs";
+import { parseManuscript, applyState, reviewBatch, supportBatch, parseVerdicts, gapReport, summaryLine, sentences, cleanTex, parseBib, findManuscripts } from "../server/manuscript.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIX = join(HERE, "fixtures", "paper");
@@ -169,4 +169,44 @@ test("bibliography parser handles nested braces and quotes", () => {
 
 test("only .tex files are read", () => {
   assert.throws(() => parseManuscript(join(FIX, "refs.bib")), /\.tex/);
+});
+
+test("a macro the author defined to colour text counts as a note, and leaves the prose", () => {
+  assert.deepEqual(r.markers, ["sv"]);
+  const n = r.notes.find((x) => x.op === "sv");
+  assert.ok(n, "found");
+  assert.equal(n.by, "SV"); assert.equal(n.text, "Check the sampling date.");
+  assert.ok(!r.candidates.some((c) => /Check the sampling date/.test(c.text)), "not part of the paper's sentences");
+  const extra = parseManuscript(join(FIX, "main.tex"), { markers: ["foo"] });
+  assert.deepEqual(extra.markers.sort(), ["foo", "sv"], "extra commands can be added by name");
+});
+
+test("cited sentences get their own ids, which change when their citations change", () => {
+  const c = r.cited.find((x) => /Smith et al\. report/.test(x.text));
+  assert.ok(c && /^S[0-9a-f]{6}$/.test(c.id));
+  assert.deepEqual(c.keys, ["Smith2020"]);
+  assert.ok(r.cited.every((x) => x.keys.length));
+});
+
+test("a support batch gives Claude the sentence and what is known of each cited paper, and says what to fetch", () => {
+  const info = { Smith2020: { title: "Triage at scale", year: "2020", h: "P7", tldr: "Shows triage automation at scale." }, Jones2019: { title: "Dashboards in practice", year: "2019", h: "", tldr: "" } };
+  const out = supportBatch(r, { info });
+  assert.match(out, /cited sentences to check/);
+  assert.match(out, /Smith2020 \(2020\) Triage at scale \[P7\]: Shows triage automation at scale\./);
+  assert.match(out, /Missing2020 \(not in the \.bib\)/);
+  assert.match(out, /ok\|weak\|no\|unclear/);
+  assert.match(supportBatch(r, { limit: 1, info }), /more; judge these/);
+});
+
+test("support verdicts are parsed by kind, and a flag only appears for weak, no or unclear", () => {
+  const c = r.cited[0], d = r.cited[1];
+  const bad = parseVerdicts(r, `${r.candidates[0].id} ok wrong kind of verdict\n${c.id} cite wrong kind too`);
+  assert.deepEqual(Object.keys(bad.ok), []);
+  const { ok } = parseVerdicts(r, `${c.id} weak about triage, not the 30% figure\n${d.id} ok`);
+  assert.equal(ok[c.id].need, "weak");
+  const st = applyState(r, { verdicts: ok });
+  assert.ok(st.open.some((g) => g.id === c.id && g.kind === "support" && g.by === "claude" && /30%/.test(g.why)));
+  assert.ok(!st.open.some((g) => g.id === d.id));
+  assert.equal(st.pendingSupport, r.cited.length - 2);
+  assert.match(summaryLine(r, {}), /cited ones not yet checked/);
 });

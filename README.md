@@ -114,6 +114,8 @@ Whether a sentence needs a source is a judgement about meaning, so it is Claude'
 
 From a flagged sentence, **Find papers** searches for that sentence rather than for a topic: a short query built from it, a pool from Zotero and Semantic Scholar, ranked locally against the sentence, with off-topic results hidden and counted and papers your draft already cites marked. Choose one and Paper Scout shows the citation to copy, or appends the entry to your `.bib` when you say so (it only ever adds to the end of the file). Write what is in and out of scope in your own words and searches and workflows keep to it.
 
+Comments from your supervisors go on the same tab: paste them, or read a Word file (its comments) or a PDF (its annotations) on your Mac. Each comment is anchored to the sentence it is about, kept in a round with its date, and tells you when that sentence has since been edited or removed, so you can see what is probably dealt with. Claude can also check, in small batches, whether the papers you cite support the sentences they are attached to. And when your draft defines its own macros to flag text (`\sv{...}`), they count as notes.
+
 ### One page for supervision
 
 A plain, printable summary of the current idea, its framing and methodology, the argument with its sources, the framework, key concepts, recent changes and open points, with references in APA.
@@ -172,6 +174,7 @@ Open `paperscout.plugin` with the Claude desktop app, then type `/paperscout:sta
 | --- | --- |
 | `/paperscout:start` | Turns on research mode for the task, connects your project and gives you the Research Desk link |
 | `/paperscout:desk` | Reopens the Research Desk in the browser pane; `/paperscout:desk browser` opens it in your own browser |
+| `/paperscout:cite <section>` | A citation pass over your linked draft: which sentences need a source, whether cited papers support theirs, papers for the places that do |
 | `/paperscout:ask <question>` | A quick answer from the literature: verdict, positions, debate and a reading list |
 | `/paperscout:lit <topic>` | A full literature review with citations and provenance |
 | `/paperscout:deepresearch <question>` | A thorough, cited research brief |

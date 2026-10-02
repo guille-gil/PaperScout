@@ -7,7 +7,7 @@ argument-hint: <question or topic>
 
 > Research mode: if `../start/references/core.md` has not been read in this task, read it now (and `../start/references/paper-routing.md` before the first paper search) and treat research mode as on for the rest of the task.
 
-> Manuscript: if `map action=show` lists a manuscript, run `map action=manuscript op=scope` first and keep every query within it; prefer `search for=<place>` to a topic search.
+> Manuscript: if `map action=show` lists a manuscript, read `../start/references/manuscript.md` (once per task), run `map action=manuscript op=scope` first and keep every query within it; prefer `search for=<place>` to a topic search.
 
 # Deep research
 
