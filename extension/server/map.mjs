@@ -3,9 +3,10 @@
 // with a readable research-map.md regenerated on every change. Claude proposes; the user decides.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync } from "node:fs";
-import { join, dirname, basename, resolve as resolvePath } from "node:path";
+import { join, dirname, basename, isAbsolute, relative, resolve as resolvePath } from "node:path";
 import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
+import { parseManuscript, findManuscripts, gapReport, summaryLine } from "./manuscript.mjs";
 
 const oneLine = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 const clip = (s, n) => { s = oneLine(s); return s.length <= n ? s : s.slice(0, n).replace(/\s+\S*$/, "") + "…"; };
@@ -98,8 +99,8 @@ export class ResearchMap {
       const other = this.ctx.ledger.peek(project);
       if (!other) throw new Error(`no project named "${project}"`);
       file = other.folder ? notesFile(other.folder) : join(this.ctx.cacheDir, "maps", other.name.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase() + ".json");
-      this.readOnly = true;
-    } else { file = this.path().file; this.readOnly = false; }
+      this.readOnly = true; this.folder = other.folder || "";
+    } else { file = this.path().file; this.readOnly = false; this.folder = st.folder || ""; }
     this.file = file;
     let m = null;
     if (existsSync(file)) { try { m = JSON.parse(readFileSync(file, "utf8")); } catch (e) { throw new Error(`research-map.json could not be read (${e.message}); fix or move it before writing`); } }
@@ -257,6 +258,7 @@ export class ResearchMap {
         `Concepts: ${count("adopted")} adopted, ${count("candidate")} candidate, ${count("parked")} parked, ${count("dropped")} dropped. Definitions ${Object.keys(m.definitions).length}. Claims ${Object.keys(m.claims).length}. Questions ${Object.keys(m.questions).length}. Versions ${m.versions.length}.`,
         ...this.flags().map((f) => `! ${f}`),
         (m.repos || []).length ? `Code: ${m.repos.map((r) => `${r.label} (${r.path})`).join("; ")} (map action=repo op=brief for an overview, on demand)` : "",
+        this.manuscriptLine(),
         Object.values(m.notes).some((n) => n.status === "open") ? `Open notes from the user: ${Object.entries(m.notes).filter(([, n]) => n.status === "open").map(([k]) => k).join(" ")} (map action=notes)` : ""].filter(Boolean).join("\n");
     }
     if (action === "concepts") {
@@ -538,6 +540,7 @@ export class ResearchMap {
     }
     if (action === "focus") return this.focus(a);
     if (action === "repo") return this.repoOp(a);
+    if (action === "manuscript") return this.manuscriptOp(a);
     if (action === "version") {
       const v = m.versions.find((x) => x.v === String(a.id || "").toLowerCase());
       if (!v) throw new Error(`unknown version ${a.id}`);
@@ -602,6 +605,69 @@ export class ResearchMap {
     return out.join("\n");
   }
   // ---------- code linked to the project ----------
+  // The user's LaTeX draft. It is linked once (the Desk offers the .tex files it finds in the project folder), then
+  // read locally on demand. Claude is shown a capped list of citation gaps, never the draft; nothing here writes to it.
+  manuscriptTarget() {
+    const m = this.m, folder = this.folder || "";
+    const set = m.manuscript?.path;
+    if (set) return { path: resolvePath(isAbsolute(set) ? set : join(folder || ".", set)), linked: true };
+    if (folder) { const found = findManuscripts(folder); return found.length === 1 ? { path: found[0], linked: false, found } : { path: "", linked: false, found }; }
+    return { path: "", linked: false, found: [] };
+  }
+  manuscriptParse() {
+    const t = this.manuscriptTarget();
+    if (!t.path) return { t, r: null };
+    try { return { t, r: parseManuscript(t.path) }; } catch (e) { return { t, r: null, error: e.message }; }
+  }
+  manuscriptLine() {
+    const { r } = this.manuscriptParse();
+    return r ? `Manuscript ${summaryLine(r, this.m.manuscript?.dismissed || [])} (map action=manuscript op=gaps)` : "";
+  }
+  manuscriptSummary() {
+    const { t, r, error } = this.manuscriptParse();
+    const dismissed = this.m.manuscript?.dismissed || [];
+    return { path: t.path, linked: t.linked, found: t.found || [], error: error || "", gaps: r ? r.gaps.filter((g) => !dismissed.includes(g.id)).length : 0, notes: r ? r.notes.length : 0 };
+  }
+  manuscriptOp(a) {
+    const m = this.m, op = a.op || "show", dismissed = m.manuscript?.dismissed || [];
+    if (op === "set") {
+      const raw = oneLine(a.path); if (!raw) throw new Error("manuscript set needs path (the main .tex file)");
+      const abs = resolvePath(isAbsolute(raw.replace(/^~(?=\/|$)/, homedir())) ? raw.replace(/^~(?=\/|$)/, homedir()) : join(this.folder || ".", raw));
+      if (!/\.tex$/i.test(abs) || !existsSync(abs) || !statSync(abs).isFile()) throw new Error(`${abs} is not a .tex file on this Mac`);
+      parseManuscript(abs);
+      const rel = this.folder ? relative(this.folder, abs) : "";
+      m.manuscript = { path: rel && !rel.startsWith("..") && !isAbsolute(rel) ? rel : abs, dismissed: dismissed.slice() };
+      this.save();
+      return `Linked ${basename(abs)}. ${summaryLine(parseManuscript(abs), dismissed)}`;
+    }
+    if (op === "clear") { delete m.manuscript; this.save(); return "Manuscript unlinked; the file itself was not touched."; }
+    if (op === "dismiss" || op === "restore") {
+      const id = oneLine(a.id).replace(/^#/, ""); if (!/^G[0-9a-f]{6}$/.test(id)) throw new Error("dismiss and restore need a gap id such as G1a2b3c");
+      const set = new Set(dismissed); if (op === "dismiss") set.add(id); else set.delete(id);
+      m.manuscript = { ...(m.manuscript || { path: "" }), dismissed: [...set].slice(-500) };
+      if (!m.manuscript.path && !this.manuscriptTarget().path) delete m.manuscript;
+      this.save(); return op === "dismiss" ? `Dismissed ${id}.` : `Restored ${id}.`;
+    }
+    const { t, r, error } = this.manuscriptParse();
+    if (op === "data") return JSON.stringify(this.manuscriptData(t, r, error));
+    if (!r) return error ? `The manuscript could not be read: ${error}` : t.found?.length ? `No manuscript linked. Found: ${t.found.map((f) => basename(f)).join(", ")}. Link one with map action=manuscript op=set path=...` : "No manuscript linked (a .tex draft in the project folder, or op=set path=...).";
+    if (op === "show" || op === "gaps") return gapReport(r, { dismissed, section: a.section || a.about, limit: a.limit });
+    throw new Error("manuscript op: show, gaps (section, limit), set (path), clear, dismiss (id), restore (id)");
+  }
+  // Everything the Research Desk shows about the draft, with the papers already known to the ledger marked.
+  manuscriptData(t, r, error) {
+    const dismissed = this.m.manuscript?.dismissed || [];
+    if (!r) return { path: t.path, linked: t.linked, found: t.found || [], error: error || "" };
+    const known = {};
+    for (const [k, b] of Object.entries(r.bib)) {
+      const h = this.ctx.ledger.find({ title: b.title, ids: { doi: b.doi || "", arxiv: b.arxiv || "" } });
+      if (h) { const p = this.ctx.ledger.get(h); known[k] = { h, status: p?.status || "", saved: !!p?.saved }; }
+    }
+    return { path: r.path, linked: t.linked, found: t.found || [], title: r.title, stats: r.stats, sections: r.sections, notes: r.notes,
+      gaps: r.gaps.map((g) => ({ ...g, dismissed: dismissed.includes(g.id) })), missing: r.missing, unused: r.unused,
+      cites: Object.fromEntries(Object.entries(r.cites).map(([k, c]) => [k, { count: c.count, sections: c.sections }])), bib: r.bib, known, bibFiles: r.bibFiles };
+  }
+
   // A project often has a repository behind it (built before, during or after the writing). The map keeps
   // where it is; Claude asks for a short overview only when a question touches the code. Read only.
   repoOp(a) {
@@ -1145,7 +1211,7 @@ p { margin: 0; }
     for (const d of Object.values(this.m.definitions)) want.add(d.h);
     for (const l of this.m.links) for (const h of [l.from, l.to]) if (/^P\d+/.test(h)) want.add(h.split("#")[0]);
     for (const h of want) { const p = this.ctx.ledger.get(h); if (p) papers[h] = { label: this.paperLabel(h), title: p.title, cards: p.cards || [] }; }
-    return { map: this.m, flags: this.flags(), inUse: this.conceptsInUse(), papers, readOnly: !!this.readOnly, file: this.file };
+    return { map: this.m, flags: this.flags(), inUse: this.conceptsInUse(), papers, readOnly: !!this.readOnly, file: this.file, manuscript: this.manuscriptSummary() };
   }
 }
 

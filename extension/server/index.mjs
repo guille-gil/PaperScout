@@ -15,7 +15,7 @@ import { verifyDraft } from "./verify.mjs";
 import { startDesk } from "./desk.mjs";
 import { ResearchMap, definitionHits } from "./map.mjs";
 
-const VERSION = "0.20.0";
+const VERSION = "0.21.0";
 const PARSER_VERSION = "3";
 const S2 = "https://api.semanticscholar.org/graph/v1";
 const S2_REC = "https://api.semanticscholar.org/recommendations/v1";
@@ -1181,9 +1181,9 @@ async function toolReadAll(a) {
   if (a.sections?.length) return toolRead(a);
   return toolOutline(a);
 }
-TOOLS.push({ name: "map", description: "The project's research map (notes/research-map.json in the project folder; never read the file). Read: show (overview, warnings), focus id=C3|K2|RQ1 (one item, its neighbours, nearby evidence), idea, concepts, definitions, questions, notes, tasks. Write: concept (id|label; status, role, use, scope, alt), define (handle, quote, loc) / undefine, tag + compare (definition attributes), scan, pulse, claim (text|id; uses, answers, status), question (verdict, coverage), link|unlink (from, rel, to), revise (statement, background, positioning, thesis, novelty, method, claims, concepts, trigger, change), version, note, task, summary, repo (code linked to the project: op list|add path,label,role|remove|brief = short overview on demand). Frameworks and the ontology are edited by the user on the Research Desk. Adopting concepts and revising the idea only after the user agrees",
-  inputSchema: S({ action: { type: "string", enum: ["show", "concepts", "concept", "define", "definitions", "tag", "compare", "scan", "pulse", "claim", "question", "questions", "link", "unlink", "revise", "version", "idea", "note", "notes", "summary", "task", "tasks", "focus", "undefine", "repo"] },
-    op: { type: "string", description: "repo: list|add|remove|brief" },
+TOOLS.push({ name: "map", description: "The project's research map (notes/research-map.json in the project folder; never read the file). Read: show (overview, warnings), focus id=C3|K2|RQ1 (one item, its neighbours, nearby evidence), idea, concepts, definitions, questions, notes, tasks. Write: concept (id|label; status, role, use, scope, alt), define (handle, quote, loc) / undefine, tag + compare (definition attributes), scan, pulse, claim (text|id; uses, answers, status), question (verdict, coverage), link|unlink (from, rel, to), revise (statement, background, positioning, thesis, novelty, method, claims, concepts, trigger, change), version, note, task, summary, repo (code linked to the project: op list|add path,label,role|remove|brief = short overview on demand), manuscript (the user's .tex: op gaps = capped list of places that may need a citation, about=section, limit; set path|clear|dismiss id). Frameworks and the ontology are edited by the user on the Research Desk. Adopting concepts and revising the idea only after the user agrees",
+  inputSchema: S({ action: { type: "string", enum: ["show", "concepts", "concept", "define", "definitions", "tag", "compare", "scan", "pulse", "claim", "question", "questions", "link", "unlink", "revise", "version", "idea", "note", "notes", "summary", "task", "tasks", "focus", "undefine", "repo", "manuscript"] },
+    op: { type: "string", description: "repo: list|add|remove|brief; manuscript: gaps|set|clear|dismiss" },
     source: { type: "string", enum: ["you", "supervisor", "workflow", "claude"] }, due: { type: "string" },
     id: { type: "string" }, label: { type: "string" }, text: { type: "string" }, alt: IDS, attributes: { type: "array", items: { type: "string" } },
     status: { type: "string" }, role: { type: "string" }, use: { type: "string" }, scope: { type: "string" }, note: { type: "string" },

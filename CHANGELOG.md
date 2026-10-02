@@ -2,6 +2,20 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.21.0 (2026-10-02)
+
+Keeping the literature close to the writing: Paper Scout now reads the draft you are working on.
+
+### Paper Scout
+- **Manuscript.** Link your LaTeX draft (Paper Scout offers the `.tex` files it finds in the project folder, or you give a path) and a new Manuscript tab on the Research Desk shows where the argument still needs sources: sentences that read like a statement about prior work and carry no citation, empty `\cite{}` placeholders, and notes asking for a source (`\todo`, the `changes` package, `% TODO` comments). It also shows the outline with citations per section, cited keys missing from the `.bib`, `.bib` entries never cited, and which cited papers are already in your Papers.
+- It follows `\input` and `\include`, finds the `.bib` from `\bibliography` or `\addbibresource`, and works with natbib, biblatex and `\cite` variants. Only `.tex` and `.bib` files are read, and Paper Scout never writes to them.
+- The reading is local and free: nothing on the tab costs Claude tokens. Claude is shown one line in `map action=show` and, on request, `map action=manuscript op=gaps`, a list capped at 10 places (`about=` narrows to a section, `limit` up to 25). The tool definitions grow by about 50 tokens.
+- The wording heuristics are guesses, and they are kept cautious: sections that are your own argument (findings, discussion, conclusion) are not checked, a neighbouring citation downgrades a guess, and anything can be dismissed (and restored) on the Desk.
+- Tests for the parser: `npm test` in `extension/`.
+
+### Paper Scout for Cowork (0.14.0)
+- A rule for the manuscript: Claude treats the `.tex` and `.bib` as read-only, and uses the capped gap list when you ask what the draft still needs.
+
 ## 0.20.0 (2026-10-02)
 
 A lighter Paper Scout: less context loaded in every conversation, fewer tokens spent per workflow.

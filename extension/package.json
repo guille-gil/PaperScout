@@ -1,6 +1,6 @@
 {
   "name": "paper-scout",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "private": true,
   "description": "Token-lean paper search, reading and research mapping for Claude, packaged as a desktop extension.",
   "type": "module",
@@ -12,7 +12,8 @@
   },
   "scripts": {
     "start": "node server/index.mjs",
-    "pack": "mcpb pack . paper-scout.mcpb"
+    "pack": "mcpb pack . paper-scout.mcpb",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.9",

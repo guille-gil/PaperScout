@@ -106,6 +106,10 @@ Saved papers are gathered as PDFs in a **papers** folder inside your project, be
 
 <p align="center"><img src="docs/images/shelf.png" alt="The papers folder and its tracker" width="75%"></p>
 
+### The draft you are writing 📝
+
+Link the LaTeX draft you are writing (Paper Scout offers the `.tex` files in your project folder) and the **Manuscript** tab shows where it still needs sources: sentences that read like a statement about prior work and carry no citation, empty `\cite{}` placeholders and notes asking for a source (`\todo`, the `changes` package, `% TODO`), with the outline, the citations per section, keys missing from your `.bib` and entries you never cited. Paper Scout reads the draft on your computer and never changes it, and the tab costs Claude no tokens. The gaps are guesses from the wording, so dismiss the ones that are your own argument.
+
 ### One page for supervision
 
 A plain, printable summary of the current idea, its framing and methodology, the argument with its sources, the framework, key concepts, recent changes and open points, with references in APA.
@@ -182,7 +186,7 @@ The full list, with what each command does, is under the **Commands** button on 
 Everything about a project lives in its own folder, readable without the tool:
 
 - `papers/`, the PDFs of your saved papers
-- `notes/research-map.json`, the map itself
+- `notes/research-map.json`, the map itself (it also remembers which `.tex` file is your draft; the draft itself is never modified)
 - `notes/research-map.md`, a readable copy regenerated on every change
 - `notes/research-summary.html`, `notes/research-framework.svg` and `notes/research-ontology.ttl` when you export them
 
