@@ -2,11 +2,11 @@
 // ledger's papers (P12) and evidence cards (P12#3). Stored as notes/research-map.json in the project folder,
 // with a readable research-map.md regenerated on every change. Claude proposes; the user decides.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, renameSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, basename, isAbsolute, relative, resolve as resolvePath } from "node:path";
 import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
-import { parseManuscript, findManuscripts, gapReport, summaryLine, applyState, reviewBatch, parseVerdicts } from "./manuscript.mjs";
+import { parseManuscript, findManuscripts, gapReport, summaryLine, applyState, reviewBatch, parseVerdicts, scopeBrief, splitList } from "./manuscript.mjs";
 
 const oneLine = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 const clip = (s, n) => { s = oneLine(s); return s.length <= n ? s : s.slice(0, n).replace(/\s+\S*$/, "") + "…"; };
@@ -621,13 +621,34 @@ export class ResearchMap {
     if (!t.path) return { t, r: null };
     try { return { t, r: parseManuscript(t.path) }; } catch (e) { return { t, r: null, error: e.message }; }
   }
-  msState() { const x = this.m.manuscript || {}; return { verdicts: x.verdicts || {}, dismissed: x.dismissed || [] }; }
+  msState() { const x = this.m.manuscript || {}; return { verdicts: x.verdicts || {}, dismissed: x.dismissed || [], attach: x.attach || {}, scope: x.scope || { in: "", out: "" } }; }
   msSave(patch) {
     const keep = (o, n) => Object.fromEntries(Object.entries(o).slice(-n));
-    const x = { path: "", dismissed: [], verdicts: {}, ...(this.m.manuscript || {}), ...patch };
-    x.dismissed = [...new Set(x.dismissed)].slice(-500); x.verdicts = keep(x.verdicts, 2000);
-    if (!x.path && !x.dismissed.length && !Object.keys(x.verdicts).length) delete this.m.manuscript; else this.m.manuscript = x;
+    const x = { path: "", dismissed: [], verdicts: {}, attach: {}, scope: { in: "", out: "" }, ...(this.m.manuscript || {}), ...patch };
+    x.dismissed = [...new Set(x.dismissed)].slice(-500); x.verdicts = keep(x.verdicts, 2000); x.attach = keep(x.attach, 500);
+    for (const k of Object.keys(x.attach)) if (!x.attach[k].length) delete x.attach[k];
+    if (!x.path && !x.dismissed.length && !Object.keys(x.verdicts).length && !Object.keys(x.attach).length && !x.scope.in && !x.scope.out) delete this.m.manuscript; else this.m.manuscript = x;
     this.save();
+  }
+  // A flagged place or candidate sentence by id, with what a search for it needs.
+  manuscriptFor(ref) {
+    this.load();
+    const { t, r } = this.manuscriptParse();
+    const id = oneLine(ref).replace(/^#/, "");
+    const hit = r ? r.candidates.find((c) => c.id === id) || r.gaps.find((g) => g.id === id) : null;
+    return { t, r, hit, title: r?.title || "", scope: this.msState().scope };
+  }
+  // How a paper already cited in the draft can be recognised: by DOI, arXiv id or normalised title.
+  manuscriptBibIndex() {
+    const { r } = this.manuscriptParse(), idx = {};
+    if (!r) return idx;
+    const nt = (x) => String(x || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "").slice(0, 90);
+    for (const [k, b] of Object.entries(r.bib)) { if (b.doi) idx["doi:" + b.doi.toLowerCase()] = k; if (b.arxiv) idx["arxiv:" + b.arxiv.toLowerCase()] = k; if (nt(b.title).length > 20) idx["t:" + nt(b.title)] = k; }
+    return idx;
+  }
+  bibKeyFor(p, idx = this.manuscriptBibIndex()) {
+    const nt = String(p.title || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "").slice(0, 90);
+    return (p.ids?.doi && idx["doi:" + p.ids.doi.toLowerCase()]) || (p.ids?.arxiv && idx["arxiv:" + p.ids.arxiv.toLowerCase()]) || (nt.length > 20 && idx["t:" + nt]) || "";
   }
   manuscriptLine() {
     const { r } = this.manuscriptParse();
@@ -636,9 +657,11 @@ export class ResearchMap {
   manuscriptSummary() {
     const { t, r, error } = this.manuscriptParse();
     const a = r ? applyState(r, this.msState()) : null;
-    return { path: t.path, linked: t.linked, found: t.found || [], error: error || "", gaps: a ? a.open.length : 0, pending: a ? a.pending : 0, notes: r ? r.notes.length : 0 };
+    const inDraft = {};
+    if (r) { const idx = this.manuscriptBibIndex(); for (const h of Object.keys(this.ctx.ledger.ensure().papers)) { const k = this.bibKeyFor(this.ctx.ledger.get(h), idx); if (k) inDraft[h] = k; } }
+    return { path: t.path, linked: t.linked, found: t.found || [], error: error || "", gaps: a ? a.open.length : 0, pending: a ? a.pending : 0, notes: r ? r.notes.length : 0, inDraft };
   }
-  manuscriptOp(a) {
+  async manuscriptOp(a) {
     const m = this.m, op = a.op || "show", st = this.msState();
     if (op === "set") {
       const raw = oneLine(a.path); if (!raw) throw new Error("manuscript set needs path (the main .tex file)");
@@ -656,10 +679,37 @@ export class ResearchMap {
       const set = new Set(st.dismissed); if (op === "dismiss") set.add(id); else set.delete(id);
       this.msSave({ dismissed: [...set] }); return op === "dismiss" ? `Dismissed ${id}.` : `Restored ${id}.`;
     }
+    if (op === "attach" || op === "detach") {
+      const id = oneLine(a.id).replace(/^#/, ""), h = oneLine(a.handle).toUpperCase();
+      if (!/^G[0-9a-f]{6}$/.test(id) || !/^P\d+$/.test(h)) throw new Error("attach and detach need id (a place, G1a2b3c) and handle (P12)");
+      const cur = new Set(st.attach[id] || []); if (op === "attach") cur.add(h); else cur.delete(h);
+      this.msSave({ attach: { ...st.attach, [id]: [...cur] } }); return op === "attach" ? `${h} chosen for ${id}.` : `${h} removed from ${id}.`;
+    }
+    if (op === "scope" && (a.text !== undefined || a.note !== undefined)) {
+      const sc = { ...st.scope };
+      if (a.text !== undefined) sc.in = oneLine(a.text).slice(0, 600);
+      if (a.note !== undefined) sc.out = String(a.note).split(/\n/).map(oneLine).filter(Boolean).join(", ").slice(0, 600);
+      this.msSave({ scope: sc }); return "Scope saved.";
+    }
+    if (op === "bib_add") {
+      // The one place Paper Scout writes to the user's files: appends an entry to the .bib named in the draft, on request.
+      const { r } = this.manuscriptParse(); if (!r) throw new Error("no manuscript linked");
+      const h = oneLine(a.handle).toUpperCase(); const p = this.ctx.ledger.get(h); if (!p) throw new Error(`${h} is not in this project`);
+      const had = this.bibKeyFor(p); if (had) return `Already in the .bib as ${had}: \\citep{${had}}`;
+      const file = r.bibFiles.find((f) => existsSync(f)); if (!file) throw new Error("the draft names no .bib file that exists on this Mac");
+      const j = JSON.parse(await this.ctx.bibtex([h]));
+      let key = j.keys[h], entry = j.entries[0]; if (!key || !entry) throw new Error("could not build a BibTeX entry for " + h);
+      let k2 = key, n = 0; while (r.bib[k2]) k2 = key + "abcdefghij"[n++];
+      if (k2 !== key) entry = entry.replace(key, k2);
+      const cur = readFileSync(file, "utf8");
+      appendFileSync(file, `${cur.endsWith("\n") ? "" : "\n"}\n% Added by Paper Scout ${today()}\n${entry.trim()}\n`);
+      return `Added ${k2} to ${basename(file)}: \\citep{${k2}}`;
+    }
     if (op === "unjudge") { const id = oneLine(a.id).replace(/^#/, ""); const v = { ...st.verdicts }; delete v[id]; this.msSave({ verdicts: v }); return `${id} will be reviewed again.`; }
     const { t, r, error } = this.manuscriptParse();
     if (op === "data") return JSON.stringify(this.manuscriptData(t, r, error));
     if (!r) return error ? `The manuscript could not be read: ${error}` : t.found?.length ? `No manuscript linked. Found: ${t.found.map((f) => basename(f)).join(", ")}. Link one with map action=manuscript op=set path=...` : "No manuscript linked (a .tex draft in the project folder, or op=set path=...).";
+    if (op === "scope") return scopeBrief(r, st);
     if (op === "review") return reviewBatch(r, { ...st, section: a.about || a.section, limit: a.limit });
     if (op === "judge") {
       const { ok, bad } = parseVerdicts(r, a.text);
@@ -669,7 +719,7 @@ export class ResearchMap {
       return `Recorded ${Object.keys(ok).length} verdicts (${n("cite")} cite, ${n("maybe")} maybe, ${n("own")} own)${bad.length ? `; ${bad.length} lines not understood` : ""}. They show on the Research Desk.`;
     }
     if (op === "show" || op === "gaps") return gapReport(r, { ...st, section: a.about || a.section, limit: a.limit });
-    throw new Error("manuscript op: review (about, limit), judge (text), gaps, set (path), clear, dismiss (id), restore (id)");
+    throw new Error("manuscript op: review (about, limit), judge (text), gaps, scope (text, note), set (path), clear, dismiss (id), restore (id)");
   }
   // Everything the Research Desk shows about the draft, with the papers already known to the ledger marked.
   manuscriptData(t, r, error) {
@@ -681,7 +731,8 @@ export class ResearchMap {
       if (h) { const p = this.ctx.ledger.get(h); known[k] = { h, status: p?.status || "", saved: !!p?.saved }; }
     }
     return { path: r.path, linked: t.linked, found: t.found || [], title: r.title, stats: r.stats, sections: ap.sections, notes: r.notes,
-      gaps: ap.gaps, own: ap.own, pending: ap.pending, missing: r.missing, unused: r.unused,
+      gaps: ap.gaps, own: ap.own, pending: ap.pending, missing: r.missing, unused: r.unused, scope: this.msState().scope,
+      attach: Object.fromEntries(Object.entries(this.msState().attach).map(([id, hs]) => [id, hs.map((h) => { const p = this.ctx.ledger.get(h); return p ? { h, title: p.title, year: p.year, lasts: p.lasts || [], status: p.status || "", key: this.bibKeyFor(p) } : { h, title: "", year: "", lasts: [], status: "", key: "" }; })])),
       cites: Object.fromEntries(Object.entries(r.cites).map(([k, c]) => [k, { count: c.count, sections: c.sections }])), bib: r.bib, known, bibFiles: r.bibFiles };
   }
 

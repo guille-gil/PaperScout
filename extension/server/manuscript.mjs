@@ -187,7 +187,7 @@ export function parseManuscript(mainPath) {
   const sections = [];
   const gaps = [], notes = [], candidates = [];
   const cites = {};
-  let body = false, skip = 0, abstract = false, title = "", top = "";
+  let body = false, skip = 0, abstract = false, title = "", top = "", abstractText = [];
   let cur = { id: "S0", level: 0, title: "Front matter", line: 1, file: main, words: 0, cites: 0, keys: new Set(), gaps: 0, notes: 0 };
   sections.push(cur);
   let par = []; // [{ f, n, t, off }]
@@ -239,6 +239,7 @@ export function parseManuscript(mainPath) {
     });
     info.forEach((x, i) => {
       cur.words += x.words;
+      if (abstract && x.clean) abstractText.push(x.clean);
       if (x.empty) { addGap({ kind: "empty-cite", strength: "likely", line: x.where.n, file: x.where.f, text: x.clean, why: "A citation placeholder is still empty." }); return; }
       if (abstract || cur.level === 0 || x.words < 3) return;
       // Candidates for Claude to judge: sentences with no citation, and any sentence somebody left a note on.
@@ -297,7 +298,7 @@ export function parseManuscript(mainPath) {
   const missing = cited.filter((k) => !bib[k]);
   const unused = Object.keys(bib).filter((k) => !cites[k] && !nocite.has(k) && !nocite.has("*"));
   const result = {
-    path: main, files: texFiles, bibFiles, title,
+    path: main, files: texFiles, bibFiles, title, abstract: abstractText.join(" "),
     sections: sections.filter((s) => s.id !== "S0" || s.notes).map((s) => ({ ...s, keys: [...s.keys] })),
     candidates, cites, bib: Object.fromEntries(Object.entries(bib).map(([k, e]) => [k, bibSummary(e)])),
     missing, unused, gaps, notes,
@@ -378,3 +379,20 @@ export function gapReport(r, { verdicts = {}, dismissed = [], section = "", limi
   if (!list.length) lines.push(a.pending ? `No places flagged yet; ${a.pending} uncited sentences have not been reviewed (op=review).` : "No places flagged" + (section ? ` in "${section}"` : "") + ".");
   return lines.join("\n");
 }
+
+// The brief a workflow starts from: what the paper is about, where it stands, what is already cited. Short on purpose.
+export function scopeBrief(r, { scope = {}, verdicts = {}, dismissed = [] } = {}) {
+  const a = applyState(r, { verdicts, dismissed });
+  const outline = r.sections.filter((x) => x.level === 1 && x.id !== "S0").map((x) => x.title);
+  const cited = Object.keys(r.cites).map((k) => { const b = r.bib[k]; return b ? `${k} (${b.year}) ${clip(b.title, 60)}` : k; });
+  const lines = [`Draft: ${r.title || basename(r.path)} (${basename(r.path)})`];
+  if (scope.in) lines.push(`In scope (the user's words): ${clip(scope.in, 400)}`);
+  if (scope.out) lines.push(`Out of scope, do not chase: ${clip(scope.out, 300)}`);
+  if (r.abstract) lines.push(`Abstract: ${clip(r.abstract, 900)}`);
+  lines.push(`Sections: ${outline.join("; ")}`);
+  lines.push(`Already cited (${cited.length}): ${cited.slice(0, 20).join("; ")}${cited.length > 20 ? "; ..." : ""}`);
+  lines.push(`Flagged places: ${a.open.length}; uncited sentences not yet reviewed: ${a.pending}.`);
+  return lines.join("\n");
+}
+
+export const splitList = (s) => String(s || "").split(/[\n,;]+/).map((x) => oneLine(x).toLowerCase()).filter((x) => x.length > 1);

@@ -7,6 +7,8 @@ argument-hint: <question or topic>
 
 > Research mode: if `../start/references/core.md` has not been read in this task, read it now (and `../start/references/paper-routing.md` before the first paper search) and treat research mode as on for the rest of the task.
 
+> Manuscript: if `map action=show` lists a manuscript, run `map action=manuscript op=scope` first and keep every query within it; prefer `search for=<place>` to a topic search.
+
 # Deep research
 
 Every run leaves on disk: `outputs/.plans/<slug>.md`, `outputs/.drafts/<slug>-draft.md`, `outputs/.drafts/<slug>-cited.md`, the final `outputs/<slug>.md` (or `papers/<slug>.md` for paper-style output) and its `.provenance.md`. Before the plan is approved only the plan file may exist. After approval, if a capability fails, continue in degraded mode and still write a partial final output with `Verification: BLOCKED`. Never end with chat-only output after approval.

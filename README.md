@@ -112,6 +112,8 @@ Link the LaTeX draft you are writing (Paper Scout offers the `.tex` files in you
 
 Whether a sentence needs a source is a judgement about meaning, so it is Claude's, not a rule's. Ask "Review my draft for missing citations" and Claude reads the uncited sentences in batches of up to 30, section by section, and says for each whether it wants a source and why. The reasons appear on the tab, you can dismiss or overrule any of them, and a sentence is judged once: an unchanged one is never read again. A batch costs about 2,000 tokens, and nothing is read unless you ask.
 
+From a flagged sentence, **Find papers** searches for that sentence rather than for a topic: a short query built from it, a pool from Zotero and Semantic Scholar, ranked locally against the sentence, with off-topic results hidden and counted and papers your draft already cites marked. Choose one and Paper Scout shows the citation to copy, or appends the entry to your `.bib` when you say so (it only ever adds to the end of the file). Write what is in and out of scope in your own words and searches and workflows keep to it.
+
 ### One page for supervision
 
 A plain, printable summary of the current idea, its framing and methodology, the argument with its sources, the framework, key concepts, recent changes and open points, with references in APA.

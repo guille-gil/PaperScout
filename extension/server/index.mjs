@@ -14,8 +14,9 @@ import { renderFigure } from "./figures.mjs";
 import { verifyDraft } from "./verify.mjs";
 import { startDesk } from "./desk.mjs";
 import { ResearchMap, definitionHits } from "./map.mjs";
+import { splitList } from "./manuscript.mjs";
 
-const VERSION = "0.22.0";
+const VERSION = "0.23.0";
 const PARSER_VERSION = "3";
 const S2 = "https://api.semanticscholar.org/graph/v1";
 const S2_REC = "https://api.semanticscholar.org/recommendations/v1";
@@ -443,6 +444,86 @@ async function toolSearch(a) {
   return [`${id} ${heads.join("; ")}. ${handles.length} papers, ${fresh} new${pre ? `; ${pre}` : ""}`, ...lines].join("\n");
 }
 
+
+// ---------- search for a place in the user's draft ----------
+// Starts from a flagged sentence rather than a topic: builds a short query from it (or takes the caller's own wording),
+// pools Zotero and Semantic Scholar (OpenAlex when thin), then ranks the pool locally against the sentence, hides
+// what is off topic or on the user's out-of-scope list, and marks what the draft already cites. A shortlist, not a haul.
+const GENERIC = new Set("paper study work result results approach analysis method methods however also thus therefore first second third new use used using based one two may might can could would should among within across between toward towards such than these those their there which while where when what more most less often many several particular different specific general case cases way ways form forms kind kinds part parts number set sets order terms term level levels point points make makes made need needs needed question questions problem problems".split(" "));
+function keyTerms(text, boost = new Set()) {
+  const counts = new Map();
+  for (const w of terms(text)) { if (GENERIC.has(w) || /^\d+$/.test(w) || w.length < 4) continue; counts.set(w, (counts.get(w) || 0) + 1); }
+  return [...counts.entries()].map(([w, c]) => [w, c + (boost.has(w) ? 2 : 0) + Math.min(w.length, 12) / 12]).sort((x, y) => y[1] - x[1]).map(([w]) => w);
+}
+const stem = (w) => w.slice(0, 5);
+// tf-idf cosine between the query terms and each candidate (title counted twice), idf taken from the pool itself.
+function fitScores(queryTerms, docs) {
+  const dts = docs.map((d) => terms(`${d.title} ${d.title} ${d.text || ""}`).map(stem));
+  const df = new Map(); for (const ts of dts) for (const t of new Set(ts)) df.set(t, (df.get(t) || 0) + 1);
+  const idf = (t) => Math.log(1 + docs.length / (1 + (df.get(t) || 0)));
+  const q = new Map(); for (const w of queryTerms) q.set(stem(w), (q.get(stem(w)) || 0) + 1);
+  const qn = Math.sqrt([...q.entries()].reduce((n, [t, c]) => n + (c * idf(t)) ** 2, 0)) || 1;
+  return dts.map((ts) => {
+    const tf = new Map(); for (const t of ts) tf.set(t, (tf.get(t) || 0) + 1);
+    const dn = Math.sqrt([...tf.entries()].reduce((n, [t, c]) => n + (c * idf(t)) ** 2, 0)) || 1;
+    let dot = 0; const hit = [];
+    for (const [t, c] of q) if (tf.has(t)) { dot += c * idf(t) * tf.get(t) * idf(t); hit.push([t, c * idf(t)]); }
+    return { score: dot / (qn * dn), hit: hit.sort((x, y) => y[1] - x[1]).map(([t]) => t) };
+  });
+}
+
+async function toolFindFor(a) {
+  await refreshSurnames();
+  const ref = oneLine(a.for);
+  const ctx = /^G[0-9a-f]{6}$/.test(ref) ? MAP.manuscriptFor(ref) : { hit: null, scope: MAP.manuscriptFor("").scope, title: MAP.manuscriptFor("").title };
+  if (/^G[0-9a-f]{6}$/.test(ref) && !ctx.hit) throw new Error(`${ref} is not a place in the linked draft (map action=manuscript op=gaps lists them)`);
+  const sentence = ctx.hit ? ctx.hit.text : ref;
+  if (!sentence) throw new Error("for needs a flagged place (G1a2b3c) or a sentence");
+  const heading = ctx.hit ? `${ctx.hit.top || ""} ${ctx.hit.section || ""} ${ctx.title || ""}` : ctx.title || "";
+  const qTerms = keyTerms(sentence, new Set(terms(heading)));
+  const query = oneLine(a.query) || qTerms.slice(0, 6).join(" ");
+  if (!query) throw new Error("nothing to search for in that sentence; pass query");
+  const limit = Math.max(1, Math.min(Number(a.limit) || 5, 10));
+  const scoreTerms = oneLine(a.query) ? terms(`${a.query} ${sentence}`) : qTerms.slice(0, 12);
+  // Pool: Zotero first (your own papers), then Semantic Scholar with abstracts for scoring only.
+  const pool = [], heads = [];
+  try { const z = await zotSearchRecords(query, 5, CFG.zoteroDir); heads.push(`zotero ${z.length}`); pool.push(...z.map((rec) => ({ rec, text: "" }))); } catch { heads.push("zotero unavailable"); }
+  const args = { query, limit: 15, year: "", sort: "relevance", venue: "", open_access: false, abstract_chars: 400 };
+  let r1;
+  try { r1 = await searchS2(args); } catch (e) { r1 = await searchOpenAlex(args); r1.head = `s2 unavailable (${e.status || "network"}), used ${r1.head}`; }
+  heads.push(r1.head); pool.push(...r1.items);
+  if (r1.items.length < 6 && !r1.head.startsWith("openalex")) { try { const o = await searchOpenAlex(args); heads.push(o.head); pool.push(...o.items); } catch {} }
+  // Register through the ledger so papers get handles and merge across sources.
+  const seen = new Map();
+  for (const { rec, text } of pool) {
+    const { h } = LEDGER.register(rec);
+    const prev = seen.get(h);
+    if (!prev || (text && !prev.text)) seen.set(h, { h, text: text || prev?.text || LEDGER.get(h)?.tldr || "" });
+  }
+  // Mark papers you already have in Zotero and match preprints to their published version, without rendering them yet.
+  for (const h of seen.keys()) { const p = LEDGER.get(h); if (!p.ids.zot) { try { const z = await zotLookup(p.ids, p.title, CFG.zoteroDir); if (z) LEDGER.register({ ...z, ids: { ...z.ids } }); } catch {} } }
+  try { await resolvePublished([...seen.keys()]); } catch {}
+  const docs = [...seen.values()].map((d) => ({ ...d, title: LEDGER.get(d.h).title }));
+  const sc = fitScores(scoreTerms, docs);
+  const out = splitList(ctx.scope?.out);
+  const idx = MAP.manuscriptBibIndex();
+  const ranked = docs.map((d, i) => {
+    const p = LEDGER.get(d.h), hay = `${d.title} ${d.text}`.toLowerCase();
+    const outHit = out.find((o) => hay.includes(o));
+    const boost = 1 + 0.1 * Math.min(Math.log10(1 + (p.cites || 0)) / 4, 1);
+    return { h: d.h, score: sc[i].score * boost, why: sc[i].hit.slice(0, 3).map((t) => scoreTerms.find((w) => stem(w) === t) || t), outHit, inBib: MAP.bibKeyFor(p, idx) };
+  });
+  const best = Math.max(0, ...ranked.filter((x) => !x.outHit).map((x) => x.score));
+  const kept = ranked.filter((x) => !x.outHit && x.score >= Math.max(0.05, 0.45 * best)).sort((x, y) => y.score - x.score);
+  const shown = kept.slice(0, limit);
+  const hidden = ranked.length - shown.length, hiddenOut = ranked.filter((x) => x.outHit).length;
+  const id = LEDGER.recordQuery({ ...args, for: ref.slice(0, 40) }, shown.map((x) => x.h), `for ${ctx.hit ? ref : "a sentence"}: ${query}`);
+  const items = shown.map((x) => { const p = LEDGER.get(x.h); return { h: x.h, title: p.title, lasts: p.lasts || [], year: p.year, venue: p.venue || "", cites: p.cites ?? null, score: Math.round(x.score * 100) / 100, why: x.why, inBib: x.inBib, status: p.status || "", oa: !!p.oa, ids: p.ids }; });
+  const head = `${id} for ${ctx.hit ? ref : "your sentence"}: query "${query}" (${heads.join("; ")}); ${ranked.length} found, ${hidden} hidden as off topic${hiddenOut ? ` (${hiddenOut} on your out-of-scope list)` : ""}`;
+  if (a.json) return JSON.stringify({ head, query, found: ranked.length, hidden, hiddenOut, items, sentence });
+  return [head, ...shown.map((x) => `${LEDGER.line(x.h, {})} | fit ${x.score.toFixed(2)}${x.why.length ? ` (${x.why.join(", ")})` : ""}${x.inBib ? ` | already in your .bib as ${x.inBib}` : ""}`),
+    shown.length ? "Shortlist only. Choose with map action=manuscript op=attach id=<place> handle=<P>; read more with paper or read." : "Nothing fit well; reword with query=."].join("\n");
+}
 // ---------- paper details ----------
 async function toolPaper(a) {
   await refreshSurnames();
@@ -1062,7 +1143,7 @@ async function toolBibtex(a) {
   hs = hs.filter((h) => st.papers[h]);
   if (!hs.length) return `No papers to export (status ${a.status || "kept"}). Mark papers with session(action="note", status="kept") first, or pass handles.`;
   const used = new Set();
-  const entries = [], keys = [], failed = [];
+  const entries = [], keys = [], failed = [], byHandle = {};
   for (const h of hs) {
     const p = st.papers[h];
     try {
@@ -1102,8 +1183,10 @@ async function toolBibtex(a) {
       p.citekey = key;
       entries.push(entry);
       keys.push(`${h} ${key}`);
+      byHandle[h] = key;
     } catch (e) { failed.push(`${h} (${e.message})`); }
   }
+  if (a.text_only) return JSON.stringify({ entries, keys: byHandle });
   const out = a.path ? (a.path.startsWith("~") ? join(homedir(), a.path.slice(1)) : a.path) : join(homedir(), "Downloads", `${st.name.replace(/[^a-z0-9_-]+/gi, "-")}.bib`);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, entries.join("\n\n") + "\n");
@@ -1136,7 +1219,7 @@ const ID = { type: "string", description: ID_HELP };
 const IDS = { type: "array", items: { type: "string" }, description: "handles (P12) or other ids" };
 const TOOLS = [
   { name: "search", description: "Find papers. Default source auto = Zotero + Semantic Scholar merged (OpenAlex added if thin). Each paper gets a handle (P12) usable everywhere; papers already shown collapse to a stub; an identical earlier search returns its handles instead of re-running. source=zotero with collection/tag/fulltext/has_pdf browses the library; collections=true lists the collection tree. Preprints are matched to their published version automatically; peer_reviewed=true hides preprint-only papers.",
-    inputSchema: S({ query: { type: "string" }, source: { type: "string", enum: ["auto", "zotero", "s2", "openalex", "arxiv"] }, sort: { type: "string", enum: ["relevance", "citations", "recent"] },
+    inputSchema: S({ query: { type: "string" }, for: { type: "string", description: "a flagged place in the user's draft (G1a2b3c): finds papers for that sentence, ranked against it; query overrides the wording" }, source: { type: "string", enum: ["auto", "zotero", "s2", "openalex", "arxiv"] }, sort: { type: "string", enum: ["relevance", "citations", "recent"] },
       year: { type: "string", description: "2021, 2019-2023, 2020-" }, venue: { type: "string" }, limit: { type: "integer" }, force: { type: "boolean" }, abstract_chars: { type: "integer" },
       collection: { type: "string" }, tag: { type: "string" }, fulltext: { type: "boolean" }, has_pdf: { type: "boolean" }, collections: { type: "boolean" }, peer_reviewed: { type: "boolean", description: "hide preprint-only papers" } }) },
   { name: "paper", description: "Details for up to 50 papers in one call: tldr (default), abstract, meta, bibtex, or notes (your Zotero notes).",
@@ -1156,6 +1239,7 @@ const TOOLS = [
 ];
 
 async function toolSearchAll(a) {
+  if (a.for) return toolFindFor(a);
   const zot = a.collections || a.collection || a.tag || a.fulltext || a.has_pdf || (a.source === "zotero" && !a.query);
   if (zot) return toolLibrary(a, CFG.zoteroDir);
   return toolSearch(a);
@@ -1378,7 +1462,7 @@ async function toolPapersFolder(a) {
 function libraryFile(h) { try { const st = LEDGER.ensure(), p = st.papers[String(h).toUpperCase()]; if (p?.pdf) { const f = join(libraryDir(st), p.pdf); if (existsSync(f)) return f; } } catch {} return null; }
 
 const MAP = new ResearchMap({ ledger: LEDGER, cacheDir: CFG.cacheDir, pulse: conceptPulse, apa: apaRefs,
-  scan: async (h, terms) => definitionHits(await loadFullText(h), terms) });
+  scan: async (h, terms) => definitionHits(await loadFullText(h), terms), bibtex: (handles) => toolBibtex({ handles, text_only: true }) });
 
 const HANDLERS = {
   desk: (a) => !DESK?.running ? "The Research Desk is not running (its port may be taken by another copy of Paper Scout)."

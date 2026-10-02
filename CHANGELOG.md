@@ -2,6 +2,20 @@
 
 All notable changes are recorded here. Versions follow the Paper Scout extension.
 
+## 0.23.0 (2026-10-02)
+
+Search starts from your sentence, not from a topic.
+
+### Paper Scout
+- **Find papers for a flagged place.** On the Manuscript tab each flagged sentence has a Find papers button. Paper Scout builds a short query from the sentence and its section, pools Zotero and Semantic Scholar (OpenAlex when thin), ranks the pool locally against the sentence, and shows a shortlist of at most 5 with a fit score, the terms that matched, and a note when your draft already cites the paper. Off-topic results are hidden and counted. It runs on the Desk, so it costs Claude nothing; in a chat, `search for=<place>` does the same (with `query=` for your own wording).
+- **Use for this sentence** chooses a paper for a place (and keeps it); **Not this** drops it so it does not come back. Chosen papers show under the sentence with the citation to copy, or **Add to .bib**, which appends the paper's BibTeX entry to the end of the .bib your draft names (after a confirmation, never changing what is already there, with a unique key). This is the only thing Paper Scout ever writes to your files.
+- **Scope.** Say in your own words what the paper is about and what is out of scope. Searches for a sentence skip papers mentioning anything on the out-of-scope list and report how many; `map action=manuscript op=scope` gives Claude a short brief of the draft (title, abstract, sections, what it already cites, your scope).
+- **Working set.** The Papers tab gets an In your draft filter, and papers show the key they are cited as.
+- Tests for the search pipeline run against canned API responses, so they need no network.
+
+### Paper Scout for Cowork (0.16.0)
+- `lit`, `deepresearch` and `ask` start from the draft's scope when a manuscript is linked; the manuscript rule explains `search for=`.
+
 ## 0.22.0 (2026-10-02)
 
 ### Paper Scout
