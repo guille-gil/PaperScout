@@ -79,6 +79,8 @@ nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(-
 .ms-t { flex: 0 1 auto; }
 .ms-m { color: var(--faint); font-size: 12.5px; flex: 1 1 auto; }
 .ms-src { padding: 6px 0; font-size: 14px; border-bottom: 1px solid var(--rule-soft); }
+.ms-ask { background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; margin-bottom: 12px; }
+.ms-ask code { font: 13px var(--mono); }
 .ms-gone { margin-top: 10px; }
 .ms-gone > summary { cursor: pointer; color: var(--ink-2); font-size: 13px; padding: 4px 0; }
 .badge { font: 600 11px/1 var(--sans); background: var(--mark); color: #2A2410; border-radius: 999px; padding: 3px 6px; }
@@ -634,9 +636,9 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
       !(ms.found || []).length ? el("p", { class: "missing" }, "No .tex file with a \\documentclass was found in the project folder.") : null];
   }
   function msGap(g) {
-    const kind = g.kind === "marker" ? "supervision" : g.strength === "likely" ? "check" : "";
+    const kind = g.kind === "empty-cite" ? "supervision" : g.strength === "likely" ? "check" : "";
     return el("div", { class: "note", "data-kind": kind || null },
-      el("div", {}, el("div", {}, g.text), el("div", { class: "nk" }, [`line ${g.line}`, g.section, g.why].filter(Boolean).join(" · "))),
+      el("div", {}, el("div", {}, g.text), el("div", { class: "nk" }, [`line ${g.line}`, g.section, g.by === "claude" ? "Claude: " + g.why : g.why].filter(Boolean).join(" · "))),
       canWrite() ? el("button", { class: "linkbtn", type: "button", title: "Not a gap; hide it", onclick: () => msAct({ op: g.dismissed ? "restore" : "dismiss", id: g.id }) }, g.dismissed ? "Restore" : "Dismiss") : null);
   }
   function viewManuscript() {
@@ -655,10 +657,17 @@ body.dragging-task, body.dragging-task * { cursor: grabbing !important; }
     const st = ms.stats || {};
     out.push(el("p", { class: "ms-stats" }, [plural(st.sections || 0, "section"), `${(st.words || 0).toLocaleString("en-GB")} words`, `${plural(st.cites || 0, "citation")} of ${plural(st.keys || 0, "source")}`, ms.notes.length ? plural(ms.notes.length, "note") : ""].filter(Boolean).join(" · ")));
     if (ms.missing.length) out.push(el("div", { class: "notice err" }, `Cited in the draft but missing from the .bib: ${ms.missing.join(", ")}`));
-    const gapBody = open.length ? [el("p", { class: "missing" }, "Sentences that read like a statement about prior work and carry no citation, and places where you or a supervisor left a note asking for one. These are guesses from the wording: dismiss the ones that are your own argument."), ...[...open].sort((a, b) => (a.strength === b.strength ? a.line - b.line : a.strength === "likely" ? -1 : 1)).map(msGap)]
-      : [el("p", { class: "missing" }, "Nothing that looks like it needs a source.")];
+    const ask = "Review my draft for missing citations";
+    const gapBody = [];
+    if (ms.pending) gapBody.push(el("div", { class: "ms-ask" }, el("div", {}, `${plural(ms.pending, "uncited sentence")} ${ms.pending === 1 ? "has" : "have"} not been reviewed. Whether a sentence needs a source is Claude's judgement, made in batches of up to 30 (about 2,000 tokens each) when you ask, and remembered by sentence so nothing is judged twice. In a chat with Paper Scout on, say:`),
+      el("div", { class: "mini", style: "margin-top:6px" }, el("code", {}, `“${ask}”`), el("button", { class: "linkbtn", type: "button", onclick: (e) => { try { navigator.clipboard.writeText(ask); e.target.textContent = "Copied"; } catch { e.target.textContent = "Select and copy it"; } } }, "Copy"))));
+    if (open.length) gapBody.push(el("p", { class: "missing" }, "Flagged by Claude's reading, or left empty in the draft. Claude can be wrong: dismiss what is your own argument."), ...[...open].sort((a, b) => (a.strength === b.strength ? a.line - b.line : a.strength === "likely" ? -1 : 1)).map(msGap));
+    else if (!ms.pending) gapBody.push(el("p", { class: "missing" }, "Nothing flagged."));
     if (gone.length) gapBody.push(el("details", { class: "ms-gone" }, el("summary", {}, `Dismissed (${gone.length})`), el("div", { class: "sec-body", style: "padding-left:0" }, ...gone.map(msGap))));
-    out.push(section("sec:ms-gaps", "Where it may need sources", plural(open.length, "place"), gapBody));
+    if ((ms.own || []).length) gapBody.push(el("details", { class: "ms-gone" }, el("summary", {}, `Claude judged these need no source (${ms.own.length})`), el("div", { class: "sec-body", style: "padding-left:0" },
+      ...ms.own.map((g) => el("div", { class: "note" }, el("div", {}, el("div", {}, clipT(g.text, 220)), el("div", { class: "nk" }, [`line ${g.line}`, g.section, g.why ? "Claude: " + g.why : ""].filter(Boolean).join(" · "))),
+        canWrite() ? el("button", { class: "linkbtn", type: "button", title: "Let Claude look at this sentence again", onclick: () => msAct({ op: "unjudge", id: g.id }) }, "Ask again") : null)))));
+    out.push(section("sec:ms-gaps", "Where it may need sources", ms.pending ? `${plural(open.length, "place")}, ${ms.pending} to review` : plural(open.length, "place"), gapBody));
     if (ms.notes.length) out.push(section("sec:ms-notes", "Notes in the draft", plural(ms.notes.length, "note"), ms.notes.map((n) => el("div", { class: "note", "data-kind": n.kind === "comment" ? "check" : "supervision" },
       el("div", {}, el("div", {}, n.text || n.comment || "(no text)"), n.context ? el("div", { class: "nk", style: "font-style:italic" }, "On: " + clipT(n.context, 140)) : null,
         el("div", { class: "nk" }, [`line ${n.line}`, n.section, n.kind === "change" ? "tracked " + n.op : n.kind === "todo" ? "to do" : "comment", n.by ? "by " + n.by : ""].filter(Boolean).join(" · ")))))));
